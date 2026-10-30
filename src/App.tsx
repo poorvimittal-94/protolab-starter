@@ -248,7 +248,7 @@ function FadeIn({ children, keyProp: _keyProp }: { children: React.ReactNode; ke
    Types
    ═══════════════════════════════════════ */
 
-type TabId = 'home' | 'agreements' | 'templates' | 'automations' | 'insights' | 'admin' | 'scenarios' | 'tokens';
+type TabId = 'home' | 'agreements' | 'templates' | 'automations' | 'insights' | 'people' | 'admin' | 'scenarios' | 'tokens';
 type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | 'deleted' | 'parties' | 'requests' | 'workspaces' | 'powerforms';
 type TemplatesSidebarView = 'my-templates' | 'shared-with-me' | 'favorites' | 'all-templates' | 'clauses' | 'document-templates' | 'workspace-templates' | 'workflow-templates' | 'my-web-forms' | 'shared-web-forms' | 'all-web-forms' | 'template-gallery' | 'elastic-templates';
 type InsightsSidebarView = 'overview' | 'dashboards' | 'reports' | 'my-dashboard' | 'admin-dashboard' | 'agreements-dashboard' | 'obligations-dashboard' | 'renewals-dashboard' | 'requests-dashboard' | 'ai-usage-dashboard' | 'procurement-hub' | 'custom-obligations' | 'custom-dashboard';
@@ -2458,7 +2458,7 @@ function Footer() {
 
 /* `scenarios` is a bare `#scenarios` route, deliberately absent from GlobalNav:
    that nav mirrors production Docusign and the trigger page is a jig. */
-const VALID_TABS: TabId[] = ['home', 'agreements', 'templates', 'automations', 'insights', 'admin', 'scenarios', 'tokens'];
+const VALID_TABS: TabId[] = ['home', 'agreements', 'templates', 'automations', 'insights', 'people', 'admin', 'scenarios', 'tokens'];
 
 interface TokenPreviewData {
   capturedDate: string;
@@ -3825,6 +3825,196 @@ function CompletedInsightsPanel() {
   );
 }
 
+/* ═══════════════════════════════════════
+   People — Employee Files
+   ═══════════════════════════════════════ */
+
+type PeopleRegion = 'Americas' | 'EMEA' | 'APAC';
+type EmployeeStatus = 'Active' | 'On leave' | 'Pre-hire' | 'Terminated';
+
+interface LegalEntity { id: string; name: string; region: PeopleRegion; country: string }
+interface EmployeeFile {
+  id: string;
+  name: string;
+  workerId: string;
+  email: string;
+  entityId: string;
+  status: EmployeeStatus;
+  files: number;
+  updated: string;
+}
+
+const PEOPLE_REGIONS: PeopleRegion[] = ['Americas', 'EMEA', 'APAC'];
+
+const LEGAL_ENTITIES: LegalEntity[] = [
+  { id: 'ent-us', name: 'Docusign, Inc.', region: 'Americas', country: 'United States' },
+  { id: 'ent-ca', name: 'Docusign Canada ULC', region: 'Americas', country: 'Canada' },
+  { id: 'ent-uk', name: 'Docusign UK Ltd', region: 'EMEA', country: 'United Kingdom' },
+  { id: 'ent-de', name: 'Docusign Germany GmbH', region: 'EMEA', country: 'Germany' },
+  { id: 'ent-fr', name: 'Docusign France SAS', region: 'EMEA', country: 'France' },
+  { id: 'ent-jp', name: 'Docusign Japan K.K.', region: 'APAC', country: 'Japan' },
+  { id: 'ent-au', name: 'Docusign Australia Pty Ltd', region: 'APAC', country: 'Australia' },
+];
+
+const EMPLOYEE_FILES_DATA: EmployeeFile[] = [
+  { id: 'emp-1', name: 'Amara Okafor', workerId: 'W-100482', email: 'amara.okafor@protolab.com', entityId: 'ent-us', status: 'Active', files: 14, updated: 'Oct 22, 2026' },
+  { id: 'emp-2', name: 'Daniel Brooks', workerId: 'W-100517', email: 'daniel.brooks@protolab.com', entityId: 'ent-us', status: 'On leave', files: 9, updated: 'Oct 19, 2026' },
+  { id: 'emp-3', name: 'Priya Raman', workerId: 'W-100634', email: 'priya.raman@protolab.com', entityId: 'ent-ca', status: 'Active', files: 11, updated: 'Oct 21, 2026' },
+  { id: 'emp-4', name: 'Hannah Whitfield', workerId: 'W-201207', email: 'hannah.whitfield@protolab.co.uk', entityId: 'ent-uk', status: 'Active', files: 16, updated: 'Oct 20, 2026' },
+  { id: 'emp-5', name: 'Oliver Grant', workerId: 'W-201244', email: 'oliver.grant@protolab.co.uk', entityId: 'ent-uk', status: 'Pre-hire', files: 3, updated: 'Oct 18, 2026' },
+  { id: 'emp-6', name: 'Lena Fischer', workerId: 'W-201390', email: 'lena.fischer@protolab.de', entityId: 'ent-de', status: 'Active', files: 12, updated: 'Oct 15, 2026' },
+  { id: 'emp-7', name: 'Matthias Keller', workerId: 'W-201411', email: 'matthias.keller@protolab.de', entityId: 'ent-de', status: 'Terminated', files: 21, updated: 'Sep 30, 2026' },
+  { id: 'emp-8', name: 'Camille Laurent', workerId: 'W-201502', email: 'camille.laurent@protolab.fr', entityId: 'ent-fr', status: 'Active', files: 10, updated: 'Oct 17, 2026' },
+  { id: 'emp-9', name: 'Haruto Sato', workerId: 'W-300118', email: 'haruto.sato@protolab.jp', entityId: 'ent-jp', status: 'Active', files: 13, updated: 'Oct 22, 2026' },
+  { id: 'emp-10', name: 'Mei Tanaka', workerId: 'W-300146', email: 'mei.tanaka@protolab.jp', entityId: 'ent-jp', status: 'On leave', files: 8, updated: 'Oct 12, 2026' },
+  { id: 'emp-11', name: 'Jack Mitchell', workerId: 'W-300271', email: 'jack.mitchell@protolab.com.au', entityId: 'ent-au', status: 'Active', files: 15, updated: 'Oct 21, 2026' },
+  { id: 'emp-12', name: 'Sofia Alvarez', workerId: 'W-100702', email: 'sofia.alvarez@protolab.com', entityId: 'ent-us', status: 'Active', files: 7, updated: 'Oct 16, 2026' },
+];
+
+const EMPLOYEE_STATUS_KIND: Record<EmployeeStatus, 'success' | 'subtle' | 'emphasis'> = {
+  Active: 'success',
+  'On leave': 'emphasis',
+  'Pre-hire': 'subtle',
+  Terminated: 'subtle',
+};
+
+const PEOPLE_ALL_SCOPE = 'all';
+
+function getPeopleScopeLabel(scope: string): string {
+  if (scope === PEOPLE_ALL_SCOPE) return 'All regions';
+  const entity = LEGAL_ENTITIES.find(item => item.id === scope);
+  return entity ? entity.name : scope;
+}
+
+function getPeopleSidebar(scope: string, onScopeChange: (scope: string) => void): React.ComponentProps<typeof LocalNav> {
+  return {
+    className: 'people-live-nav',
+    allowCollapsibility: false,
+    activeItemId: scope,
+    sections: [{
+      id: 'employee-files',
+      items: [
+        { id: PEOPLE_ALL_SCOPE, label: 'All employee files', icon: 'folder-open', onClick: () => onScopeChange(PEOPLE_ALL_SCOPE) },
+        ...PEOPLE_REGIONS.flatMap(region => [
+          { id: region, label: region, icon: 'folder' as const, onClick: () => onScopeChange(region) },
+          ...LEGAL_ENTITIES.filter(entity => entity.region === region).map(entity => ({
+            id: entity.id, label: entity.name, nested: true, onClick: () => onScopeChange(entity.id),
+          })),
+        ]),
+      ],
+    }],
+  };
+}
+
+function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
+  scope: string;
+  onScopeChange: (scope: string) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
+}) {
+  const [status, setStatus] = useState<'All statuses' | EmployeeStatus>('All statuses');
+
+  const rows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return EMPLOYEE_FILES_DATA.filter(employee => {
+      const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
+      const inScope = scope === PEOPLE_ALL_SCOPE || scope === entity.region || scope === entity.id;
+      const matchesStatus = status === 'All statuses' || employee.status === status;
+      const matchesSearch = !query || `${employee.name} ${employee.workerId} ${employee.email}`.toLowerCase().includes(query);
+      return inScope && matchesStatus && matchesSearch;
+    });
+  }, [scope, search, status]);
+
+  const scopeEntity = LEGAL_ENTITIES.find(item => item.id === scope);
+  const scopeTrail = scope === PEOPLE_ALL_SCOPE ? ['All regions'] : scopeEntity ? [scopeEntity.region, scopeEntity.name] : [scope];
+  const scopeItems = [
+    { id: PEOPLE_ALL_SCOPE, label: 'All regions' },
+    ...PEOPLE_REGIONS.map(region => ({ id: region, label: region })),
+    ...LEGAL_ENTITIES.map(entity => ({ id: entity.id, label: `${entity.name} (${entity.country})` })),
+  ];
+  const fileTotal = rows.reduce((sum, employee) => sum + employee.files, 0);
+
+  const columns: DataTableColumn<EmployeeFile>[] = [
+    {
+      key: 'name',
+      header: 'Employee',
+      sortable: true,
+      cell: row => (
+        <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
+          <Icon name="folder" size={20} color="var(--ink-cobalt-90)" />
+          <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
+            <Text size="sm" weight="medium">{row.name}</Text>
+            <Text size="xs" color="secondary">{row.workerId}</Text>
+          </Stack>
+        </Inline>
+      ),
+    },
+    {
+      key: 'entity',
+      header: 'Legal entity',
+      cell: row => {
+        const entity = LEGAL_ENTITIES.find(item => item.id === row.entityId)!;
+        return (
+          <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
+            <Text size="sm">{entity.name}</Text>
+            <Text size="xs" color="secondary">{entity.region} · {entity.country}</Text>
+          </Stack>
+        );
+      },
+    },
+    { key: 'status', header: 'Employment status', width: '16%', cell: row => <Badge kind={EMPLOYEE_STATUS_KIND[row.status]} text={row.status} /> },
+    { key: 'email', header: 'Work email', cell: row => <Text size="sm">{row.email}</Text> },
+    { key: 'files', header: 'Files', width: '8%', sortable: true, cell: row => <Text size="sm">{row.files}</Text> },
+    { key: 'updated', header: 'Last updated', width: '14%', sortable: true, cell: row => <Text size="sm">{row.updated}</Text> },
+  ];
+
+  return (
+    <AgreementTableView
+      pageHeader={<PageHeader title="Employee Files" />}
+      filterBar={
+        <FilterBar
+          viewSelector={
+            <Dropdown items={scopeItems.map(item => ({ label: item.label, selected: item.id === scope, onClick: () => onScopeChange(item.id) }))}>
+              <Button kind="secondary" size="small" menuTrigger startElement={<Icon name="folder-open" size={16} />}>
+                Scope: {getPeopleScopeLabel(scope)}
+              </Button>
+            </Dropdown>
+          }
+          search={{ value: search, onChange: onSearchChange, placeholder: 'Search by employee name' }}
+          filters={
+            <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
+              <Dropdown items={(['All statuses', 'Active', 'On leave', 'Pre-hire', 'Terminated'] as const).map(value => ({ label: value, selected: value === status, onClick: () => setStatus(value) }))}>
+                <Button kind="secondary" size="small" menuTrigger>{status === 'All statuses' ? 'Employment status' : status}</Button>
+              </Dropdown>
+              <Button kind="tertiary" size="small" onClick={() => { onSearchChange(''); setStatus('All statuses'); onScopeChange(PEOPLE_ALL_SCOPE); }}>Clear all</Button>
+            </Inline>
+          }
+        />
+      }
+    >
+      <Stack gap="small">
+        <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
+          <Icon name="folder-open" size={16} />
+          <Text size="sm" weight="medium">{scopeTrail.join(' / ')}</Text>
+          <Text size="sm" color="secondary" aria-live="polite">
+            {rows.length} {rows.length === 1 ? 'employee' : 'employees'} · {fileTotal} files in view
+          </Text>
+        </Inline>
+        <DataTable
+          columns={columns}
+          data={rows}
+          getRowKey={row => row.id}
+          stickyHeader
+          showColumnControl
+          rowHeight="tall"
+          emptyMessage="No employee files match this scope and search"
+          pagination={{ page: 1, pageSize: 25, totalItems: rows.length, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true }}
+        />
+      </Stack>
+    </AgreementTableView>
+  );
+}
+
 function getTabFromHash(): TabId {
   const hash = window.location.hash.replace('#', '');
   return VALID_TABS.includes(hash as TabId) ? (hash as TabId) : 'home';
@@ -3838,6 +4028,8 @@ function PrototypeApp() {
   const [accountUsers, setAccountUsers] = useState<AccountUser[]>(ACCOUNT_USERS);
   const [accountSettings, setAccountSettings] = useState<AccountSettings>(DEFAULT_ACCOUNT_SETTINGS);
   const [adminView, setAdminView] = useState<AdminView>(ADMIN_DEFAULT_VIEW);
+  const [peopleScope, setPeopleScope] = useState<string>(PEOPLE_ALL_SCOPE);
+  const [peopleSearch, setPeopleSearch] = useState('');
   const [sidebarView, setSidebarView] = useState<SidebarView>('completed');
   const [templatesSidebarView, setTemplatesSidebarView] = useState<TemplatesSidebarView>('my-templates');
   const [templateItems, setTemplateItems] = useState<TemplateItem[]>(() => [...TEMPLATES_DATA, ...TEMPLATE_RESOURCES_DATA]);
@@ -4123,6 +4315,7 @@ function PrototypeApp() {
       { id: 'templates', label: 'Templates', active: activeTab === 'templates', onClick: () => handleTabClick('templates') },
       { id: 'automations', label: 'Automations', active: activeTab === 'automations', onClick: () => handleTabClick('automations') },
       { id: 'insights', label: 'Insights', active: activeTab === 'insights', onClick: () => handleTabClick('insights') },
+      { id: 'people', label: 'People', active: activeTab === 'people', onClick: () => handleTabClick('people') },
       { id: 'admin', label: 'Admin', active: activeTab === 'admin', onClick: () => handleTabClick('admin') },
     ],
     showSearch: true,
@@ -4534,6 +4727,7 @@ function PrototypeApp() {
     templates: templatesSidebar,
     automations: getAutomationSidebar(automationView, setAutomationView),
     insights: insightsSidebar,
+    people: getPeopleSidebar(peopleScope, setPeopleScope),
     admin: getAdminSidebar(adminView, setAdminView, accountSettings.name),
     scenarios: undefined,
     tokens: undefined,
@@ -4555,6 +4749,7 @@ function PrototypeApp() {
     templates: templatesContent,
     automations: <AutomationsPage workflows={workflows} onChange={setWorkflows} view={automationView} onNavigate={setAutomationView} />,
     insights: insightsContent,
+    people: <PeoplePage scope={peopleScope} onScopeChange={setPeopleScope} search={peopleSearch} onSearchChange={setPeopleSearch} />,
     admin: <AdminPage users={accountUsers} onUsersChange={setAccountUsers} settings={accountSettings} onSettingsChange={setAccountSettings} view={adminView} onNavigate={setAdminView} />,
     scenarios: <ScenariosPage onRun={runScenario} />,
     tokens: <TokenPreviewPage />,
