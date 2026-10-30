@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ═══════════════════════════════════════
+/* ══════���════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -491,7 +491,7 @@ const navigatorColumns: DataTableColumn<NavigatorAgreement>[] = [
   },
 ];
 
-/* ═══════════════════════════════════════
+/* ═���═════════════════════════════════════
    Parties Data (matches real DocuSign)
    ═══════════════════════════════════════ */
 
@@ -3869,7 +3869,88 @@ const EMPLOYEE_FILES_DATA: EmployeeFile[] = [
   { id: 'emp-10', name: 'Mei Tanaka', workerId: 'W-300146', email: 'mei.tanaka@protolab.jp', entityId: 'ent-jp', status: 'On leave', files: 8, updated: 'Oct 12, 2026' },
   { id: 'emp-11', name: 'Jack Mitchell', workerId: 'W-300271', email: 'jack.mitchell@protolab.com.au', entityId: 'ent-au', status: 'Active', files: 15, updated: 'Oct 21, 2026' },
   { id: 'emp-12', name: 'Sofia Alvarez', workerId: 'W-100702', email: 'sofia.alvarez@protolab.com', entityId: 'ent-us', status: 'Active', files: 7, updated: 'Oct 16, 2026' },
+  { id: 'emp-13', name: 'Daniel Brooks', workerId: 'W-201688', email: 'daniel.brooks@protolab.co.uk', entityId: 'ent-uk', status: 'Active', files: 6, updated: 'Oct 20, 2026' },
+  { id: 'emp-14', name: 'Daniel Brooks', workerId: 'W-300352', email: 'daniel.brooks@protolab.com.au', entityId: 'ent-au', status: 'Terminated', files: 18, updated: 'Aug 29, 2026' },
+  { id: 'emp-15', name: 'Priya Raman', workerId: 'W-201733', email: 'priya.raman@protolab.de', entityId: 'ent-de', status: 'Active', files: 9, updated: 'Oct 14, 2026' },
+  { id: 'emp-16', name: 'Priya Raman', workerId: 'W-300390', email: 'priya.raman@protolab.jp', entityId: 'ent-jp', status: 'Pre-hire', files: 2, updated: 'Oct 18, 2026' },
 ];
+
+function EmployeeSearchResults({ rows, query }: { rows: EmployeeFile[]; query: string }) {
+  const [opened, setOpened] = useState<EmployeeFile | null>(null);
+  const sorted = useMemo(() => [...rows].sort((a, b) => a.name.localeCompare(b.name) || a.workerId.localeCompare(b.workerId)), [rows]);
+  const nameCounts = sorted.reduce<Record<string, number>>((acc, employee) => ({ ...acc, [employee.name]: (acc[employee.name] ?? 0) + 1 }), {});
+  const duplicateNames = Object.keys(nameCounts).filter(name => nameCounts[name] > 1);
+
+  if (sorted.length === 0) {
+    return <Banner kind="information" closable={false} lineWrap>No employee files match &ldquo;{query}&rdquo;. Try a different name, worker ID, or work email.</Banner>;
+  }
+
+  return (
+    <Stack gap="medium">
+      <Stack gap="small">
+        {duplicateNames.length > 0 && (
+          <Banner kind="warning" closable={false} lineWrap>
+            {duplicateNames.map(name => `${nameCounts[name]} employees are named ${name}`).join('; ')}. Compare worker ID, legal entity, and work email before opening a file.
+          </Banner>
+        )}
+        {opened && (
+          <Banner kind="success" closable onClose={() => setOpened(null)}>
+            Opened employee file for {opened.name} ({opened.workerId}).
+          </Banner>
+        )}
+        <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
+          <Text size="md" weight="semibold" aria-live="polite">
+            {sorted.length} {sorted.length === 1 ? 'employee' : 'employees'} found
+          </Text>
+          <Text size="sm" color="secondary">Select the correct employee file</Text>
+        </Inline>
+      </Stack>
+
+      <Stack gap="small" role="list" aria-label="Employee search results">
+        {sorted.map(employee => {
+          const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
+          const isDuplicate = nameCounts[employee.name] > 1;
+          const details: { label: string; value: string; sub?: string }[] = [
+            { label: 'Worker ID', value: employee.workerId },
+            { label: 'Legal entity', value: entity.name, sub: `${entity.region} · ${entity.country}` },
+            { label: 'Work email', value: employee.email },
+            { label: 'Files', value: String(employee.files), sub: `Updated ${employee.updated}` },
+          ];
+          return (
+            <div key={employee.id} role="listitem">
+              <Card radius="medium">
+                <Card.Body>
+                  <Inline gap="large" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
+                    <Stack gap="small" style={{ flex: 1, minWidth: 0 }}>
+                      <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
+                        <Icon name="folder" size={20} color="var(--ink-cobalt-90)" />
+                        <Text size="md" weight="semibold">{employee.name}</Text>
+                        <Badge kind={EMPLOYEE_STATUS_KIND[employee.status]} text={employee.status} />
+                        {isDuplicate && <Badge kind="emphasis" text="Same name" />}
+                      </Inline>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--ink-spacing-200)' }}>
+                        {details.map(detail => (
+                          <Stack key={detail.label} gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
+                            <Text size="xs" color="secondary">{detail.label}</Text>
+                            <Text size="sm" weight="medium" style={{ overflowWrap: 'anywhere' }}>{detail.value}</Text>
+                            {detail.sub && <Text size="xs" color="secondary">{detail.sub}</Text>}
+                          </Stack>
+                        ))}
+                      </div>
+                    </Stack>
+                    <Button kind="secondary" size="small" onClick={() => setOpened(employee)} aria-label={`Open file for ${employee.name}, worker ID ${employee.workerId}`}>
+                      Open file
+                    </Button>
+                  </Inline>
+                </Card.Body>
+              </Card>
+            </div>
+          );
+        })}
+      </Stack>
+    </Stack>
+  );
+}
 
 const EMPLOYEE_STATUS_KIND: Record<EmployeeStatus, 'success' | 'subtle' | 'emphasis'> = {
   Active: 'success',
@@ -3992,6 +4073,16 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
         />
       }
     >
+      {search.trim() ? (
+        <Stack gap="small">
+          <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
+            <Icon name="folder-open" size={16} />
+            <Text size="sm" weight="medium">{scopeTrail.join(' / ')}</Text>
+            <Text size="sm" color="secondary">Results for &ldquo;{search.trim()}&rdquo;</Text>
+          </Inline>
+          <EmployeeSearchResults rows={rows} query={search.trim()} />
+        </Stack>
+      ) : (
       <Stack gap="small">
         <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
           <Icon name="folder-open" size={16} />
@@ -4011,6 +4102,7 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
           pagination={{ page: 1, pageSize: 25, totalItems: rows.length, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true }}
         />
       </Stack>
+      )}
     </AgreementTableView>
   );
 }
