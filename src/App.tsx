@@ -248,8 +248,8 @@ function FadeIn({ children, keyProp: _keyProp }: { children: React.ReactNode; ke
    Types
    ═══════════════════════════════════════ */
 
-type TabId = 'home' | 'agreements' | 'templates' | 'automations' | 'insights' | 'people' | 'admin' | 'scenarios' | 'tokens';
-type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | 'deleted' | 'parties' | 'requests' | 'workspaces' | 'powerforms';
+type TabId = 'home' | 'agreements' | 'templates' | 'automations' | 'insights' | 'admin' | 'scenarios' | 'tokens';
+type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | 'deleted' | 'parties' | 'requests' | 'workspaces' | 'powerforms' | 'people';
 type TemplatesSidebarView = 'my-templates' | 'shared-with-me' | 'favorites' | 'all-templates' | 'clauses' | 'document-templates' | 'workspace-templates' | 'workflow-templates' | 'my-web-forms' | 'shared-web-forms' | 'all-web-forms' | 'template-gallery' | 'elastic-templates';
 type InsightsSidebarView = 'overview' | 'dashboards' | 'reports' | 'my-dashboard' | 'admin-dashboard' | 'agreements-dashboard' | 'obligations-dashboard' | 'renewals-dashboard' | 'requests-dashboard' | 'ai-usage-dashboard' | 'procurement-hub' | 'custom-obligations' | 'custom-dashboard';
 
@@ -2458,7 +2458,7 @@ function Footer() {
 
 /* `scenarios` is a bare `#scenarios` route, deliberately absent from GlobalNav:
    that nav mirrors production Docusign and the trigger page is a jig. */
-const VALID_TABS: TabId[] = ['home', 'agreements', 'templates', 'automations', 'insights', 'people', 'admin', 'scenarios', 'tokens'];
+const VALID_TABS: TabId[] = ['home', 'agreements', 'templates', 'automations', 'insights', 'admin', 'scenarios', 'tokens'];
 
 interface TokenPreviewData {
   capturedDate: string;
@@ -4315,7 +4315,6 @@ function PrototypeApp() {
       { id: 'templates', label: 'Templates', active: activeTab === 'templates', onClick: () => handleTabClick('templates') },
       { id: 'automations', label: 'Automations', active: activeTab === 'automations', onClick: () => handleTabClick('automations') },
       { id: 'insights', label: 'Insights', active: activeTab === 'insights', onClick: () => handleTabClick('insights') },
-      { id: 'people', label: 'People', active: activeTab === 'people', onClick: () => handleTabClick('people') },
       { id: 'admin', label: 'Admin', active: activeTab === 'admin', onClick: () => handleTabClick('admin') },
     ],
     showSearch: true,
@@ -4335,7 +4334,7 @@ function PrototypeApp() {
       { id: 'new-template', label: 'New Template', icon: 'star' as const, onClick: () => handleTabClick('templates') },
       { id: 'upload', label: 'Upload Document', icon: 'upload' as const, onClick: () => setHomeCreation({ kind: 'envelope', files: [] }) },
     ],
-    activeItemId: sidebarView,
+    activeItemId: sidebarView === 'people' && peopleScope !== PEOPLE_ALL_SCOPE ? peopleScope : sidebarView,
     sections: [
       {
         id: 'agreements',
@@ -4350,6 +4349,19 @@ function PrototypeApp() {
       { id: 'folders-divider', hasDivider: true, items: [
         { id: 'folders-item', label: 'Folders', icon: 'folder' as const, hasMenu: true },
       ]},
+      {
+        id: 'people-files',
+        hasDivider: true,
+        items: [
+          { id: 'people', label: 'People', icon: 'people' as const, onClick: () => { setPeopleScope(PEOPLE_ALL_SCOPE); setSidebarView('people'); } },
+          ...(sidebarView === 'people' ? PEOPLE_REGIONS.flatMap(region => [
+            { id: region, label: region, icon: 'folder' as const, nested: true, onClick: () => setPeopleScope(region) },
+            ...LEGAL_ENTITIES.filter(entity => entity.region === region).map(entity => ({
+              id: entity.id, label: entity.name, nested: true, onClick: () => setPeopleScope(entity.id),
+            })),
+          ]) : []),
+        ],
+      },
       {
         id: 'features',
         hasDivider: true,
@@ -4486,7 +4498,7 @@ function PrototypeApp() {
   const VIEW_LABELS: Record<SidebarView, string> = {
     'all-agreements': 'All Agreements', drafts: 'Drafts', 'in-progress': 'In Progress',
     completed: 'Completed', deleted: 'Deleted', parties: 'Parties', requests: 'Requests',
-    workspaces: 'Workspaces', powerforms: 'PowerForms',
+    workspaces: 'Workspaces', powerforms: 'PowerForms', people: 'People',
   };
 
   const isPartiesView = sidebarView === 'parties';
@@ -4727,7 +4739,6 @@ function PrototypeApp() {
     templates: templatesSidebar,
     automations: getAutomationSidebar(automationView, setAutomationView),
     insights: insightsSidebar,
-    people: getPeopleSidebar(peopleScope, setPeopleScope),
     admin: getAdminSidebar(adminView, setAdminView, accountSettings.name),
     scenarios: undefined,
     tokens: undefined,
@@ -4745,11 +4756,12 @@ function PrototypeApp() {
       onAskIris={openIris}
       onBegin={(kind, files = []) => setHomeCreation({ kind, files })}
     />,
-    agreements: agreementsContent,
+    agreements: sidebarView === 'people'
+      ? <PeoplePage scope={peopleScope} onScopeChange={setPeopleScope} search={peopleSearch} onSearchChange={setPeopleSearch} />
+      : agreementsContent,
     templates: templatesContent,
     automations: <AutomationsPage workflows={workflows} onChange={setWorkflows} view={automationView} onNavigate={setAutomationView} />,
     insights: insightsContent,
-    people: <PeoplePage scope={peopleScope} onScopeChange={setPeopleScope} search={peopleSearch} onSearchChange={setPeopleSearch} />,
     admin: <AdminPage users={accountUsers} onUsersChange={setAccountUsers} settings={accountSettings} onSettingsChange={setAccountSettings} view={adminView} onNavigate={setAdminView} />,
     scenarios: <ScenariosPage onRun={runScenario} />,
     tokens: <TokenPreviewPage />,
