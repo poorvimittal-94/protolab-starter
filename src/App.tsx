@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════���════════════════════════════════
+/* ══════�����════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -3875,8 +3875,237 @@ const EMPLOYEE_FILES_DATA: EmployeeFile[] = [
   { id: 'emp-16', name: 'Priya Raman', workerId: 'W-300390', email: 'priya.raman@protolab.jp', entityId: 'ent-jp', status: 'Pre-hire', files: 2, updated: 'Oct 18, 2026' },
 ];
 
-function EmployeeSearchResults({ rows, query }: { rows: EmployeeFile[]; query: string }) {
-  const [opened, setOpened] = useState<EmployeeFile | null>(null);
+type EmployeeDocStatus = 'Completed' | 'Out for signature' | 'Needs review';
+interface EmployeeDoc {
+  id: string;
+  name: string;
+  type: string;
+  status: EmployeeDocStatus;
+  ageDays: number;
+  parties: string;
+}
+
+const EMPLOYEE_DOC_TYPES = ['Hiring and onboarding', 'Compensation and benefits', 'Policies and acknowledgments', 'Employment changes', 'Offboarding'] as const;
+
+const EMPLOYEE_DOC_TEMPLATES: Omit<EmployeeDoc, 'id'>[] = [
+  { name: 'Offer letter', type: 'Hiring and onboarding', status: 'Completed', ageDays: 900, parties: 'Employee, HR Business Partner' },
+  { name: 'Employment agreement', type: 'Hiring and onboarding', status: 'Completed', ageDays: 895, parties: 'Employee, Legal entity signatory' },
+  { name: 'Confidentiality and IP assignment', type: 'Hiring and onboarding', status: 'Completed', ageDays: 893, parties: 'Employee, Legal' },
+  { name: 'Direct deposit authorization', type: 'Compensation and benefits', status: 'Completed', ageDays: 890, parties: 'Employee, Payroll' },
+  { name: 'Benefits enrollment confirmation', type: 'Compensation and benefits', status: 'Completed', ageDays: 880, parties: 'Employee, Benefits team' },
+  { name: 'Code of conduct acknowledgment', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 870, parties: 'Employee' },
+  { name: 'Remote work agreement', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 420, parties: 'Employee, Manager' },
+  { name: 'Equity grant agreement', type: 'Compensation and benefits', status: 'Completed', ageDays: 400, parties: 'Employee, Stock administration' },
+  { name: 'Compensation change notice', type: 'Compensation and benefits', status: 'Completed', ageDays: 210, parties: 'Employee, Compensation team' },
+  { name: 'Promotion letter', type: 'Employment changes', status: 'Completed', ageDays: 205, parties: 'Employee, HR Business Partner' },
+  { name: 'Annual policy acknowledgment', type: 'Policies and acknowledgments', status: 'Out for signature', ageDays: 12, parties: 'Employee' },
+  { name: 'Data privacy consent', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 160, parties: 'Employee, Privacy office' },
+  { name: 'Role change addendum', type: 'Employment changes', status: 'Needs review', ageDays: 20, parties: 'Employee, Manager, HR Business Partner' },
+  { name: 'Relocation agreement', type: 'Employment changes', status: 'Completed', ageDays: 120, parties: 'Employee, Mobility team' },
+  { name: 'Performance improvement plan', type: 'Employment changes', status: 'Completed', ageDays: 95, parties: 'Employee, Manager' },
+  { name: 'Bonus plan acknowledgment', type: 'Compensation and benefits', status: 'Out for signature', ageDays: 6, parties: 'Employee, Compensation team' },
+  { name: 'Equipment acknowledgment', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 60, parties: 'Employee, IT' },
+  { name: 'Leave of absence request', type: 'Employment changes', status: 'Completed', ageDays: 45, parties: 'Employee, HR Business Partner' },
+  { name: 'Separation agreement', type: 'Offboarding', status: 'Completed', ageDays: 30, parties: 'Employee, Legal' },
+  { name: 'Return of property certification', type: 'Offboarding', status: 'Completed', ageDays: 28, parties: 'Employee, IT' },
+  { name: 'Final pay statement', type: 'Offboarding', status: 'Completed', ageDays: 22, parties: 'Employee, Payroll' },
+  { name: 'Exit interview summary', type: 'Offboarding', status: 'Needs review', ageDays: 18, parties: 'HR Business Partner' },
+];
+
+const EMPLOYEE_DOC_STATUS_KIND: Record<EmployeeDocStatus, 'success' | 'subtle' | 'emphasis'> = {
+  Completed: 'success',
+  'Out for signature': 'emphasis',
+  'Needs review': 'subtle',
+};
+
+function formatEmployeeDocDate(ageDays: number): string {
+  const date = new Date(2026, 9, 22);
+  date.setDate(date.getDate() - ageDays);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getEmployeeDocs(employee: EmployeeFile): EmployeeDoc[] {
+  const base = EMPLOYEE_DOC_TEMPLATES.map((doc, index) => ({ ...doc, id: `${employee.id}-doc-${index}` }));
+  const withoutOffboarding = base.filter(doc => doc.type !== 'Offboarding');
+  const pool = employee.status === 'Terminated' ? [...withoutOffboarding.slice(0, employee.files - 4), ...base.filter(doc => doc.type === 'Offboarding').slice(0, 4)] : withoutOffboarding;
+  const hasHiringOnly = employee.status === 'Pre-hire';
+  const picked = hasHiringOnly ? pool.slice(0, employee.files).map((doc, i) => ({ ...doc, ageDays: 14 + i * 3, status: (i === employee.files - 1 ? 'Out for signature' : 'Completed') as EmployeeDocStatus })) : pool.slice(0, employee.files);
+  return picked;
+}
+
+function getEmployeeDocRecency(ageDays: number): string {
+  if (ageDays <= 90) return 'Last 90 days';
+  if (ageDays <= 365) return 'Earlier this year';
+  return 'Prior years';
+}
+
+function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; onBack: () => void }) {
+  const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
+  const docs = useMemo(() => getEmployeeDocs(employee), [employee]);
+  const [groupBy, setGroupBy] = useState<'Type' | 'Recency'>('Type');
+  const [selectedId, setSelectedId] = useState<string>(() => (docs.find(doc => doc.status !== 'Completed') ?? docs[0])?.id ?? '');
+  const selected = docs.find(doc => doc.id === selectedId) ?? null;
+  const initials = employee.name.split(' ').map(part => part[0]).join('').slice(0, 2);
+  const completed = docs.filter(doc => doc.status === 'Completed').length;
+  const waiting = docs.filter(doc => doc.status === 'Out for signature').length;
+  const review = docs.filter(doc => doc.status === 'Needs review').length;
+
+  const groupOrder = groupBy === 'Type' ? (EMPLOYEE_DOC_TYPES as readonly string[]) : ['Last 90 days', 'Earlier this year', 'Prior years'];
+  const groups = groupOrder
+    .map(label => ({
+      label,
+      items: docs.filter(doc => (groupBy === 'Type' ? doc.type : getEmployeeDocRecency(doc.ageDays)) === label).sort((a, b) => a.ageDays - b.ageDays),
+    }))
+    .filter(group => group.items.length > 0);
+
+  const identity: { label: string; value: string }[] = [
+    { label: 'Region', value: entity.region },
+    { label: 'Legal entity', value: `${entity.name} (${entity.country})` },
+    { label: 'Worker ID', value: employee.workerId },
+    { label: 'Work email', value: employee.email },
+  ];
+  const summary: { label: string; value: number | string; note?: string }[] = [
+    { label: 'Documents', value: docs.length },
+    { label: 'Completed', value: completed },
+    { label: 'Out for signature', value: waiting },
+    { label: 'Needs review', value: review },
+    { label: 'Last updated', value: employee.updated },
+  ];
+
+  return (
+    <Stack gap="medium">
+      <Inline gap="small" align="center">
+        <Button kind="tertiary" size="small" onClick={onBack}>Employee Files</Button>
+        <Icon name="chevron-right" size={16} />
+        <Text size="sm" weight="medium">{employee.name}</Text>
+      </Inline>
+
+      <Card radius="medium">
+        <Card.Body>
+          <Stack gap="medium">
+            <Inline gap="medium" align="center" style={{ flexWrap: 'nowrap' }}>
+              <Avatar initials={initials} alt={employee.name} size="large" />
+              <Stack gap="none" style={{ gap: 'var(--ink-spacing-50)', flex: 1, minWidth: 0 }}>
+                <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
+                  <Heading level={2}>{employee.name}</Heading>
+                  <Badge kind={EMPLOYEE_STATUS_KIND[employee.status]} text={employee.status} />
+                </Inline>
+                <Text size="sm" color="secondary">Employee file · {docs.length} documents across {groups.length} {groupBy === 'Type' ? 'types' : 'periods'}</Text>
+              </Stack>
+              <Button kind="secondary" size="small">Share file</Button>
+            </Inline>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--ink-spacing-200)' }}>
+              {identity.map(item => (
+                <Stack key={item.label} gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
+                  <Text size="xs" color="secondary">{item.label}</Text>
+                  <Text size="sm" weight="medium" style={{ overflowWrap: 'anywhere' }}>{item.value}</Text>
+                </Stack>
+              ))}
+            </div>
+          </Stack>
+        </Card.Body>
+      </Card>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--ink-spacing-150)' }} role="group" aria-label="Document summary">
+        {summary.map(item => (
+          <Card key={item.label} radius="medium">
+            <Card.Body>
+              <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
+                <Text size="xs" color="secondary">{item.label}</Text>
+                <Text size="lg" weight="semibold">{item.value}</Text>
+              </Stack>
+            </Card.Body>
+          </Card>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 'var(--ink-spacing-200)', alignItems: 'start' }}>
+        <Stack gap="small">
+          <Inline gap="small" align="center" justify="between">
+            <Text size="md" weight="semibold">Documents</Text>
+            <Dropdown items={(['Type', 'Recency'] as const).map(value => ({ label: value, selected: value === groupBy, onClick: () => setGroupBy(value) }))}>
+              <Button kind="secondary" size="small" menuTrigger>Group by: {groupBy}</Button>
+            </Dropdown>
+          </Inline>
+          <Accordion
+            key={groupBy}
+            defaultOpenItems={groups.map(group => group.label)}
+            items={groups.map(group => ({
+              id: group.label,
+              title: group.label,
+              subtitle: `${group.items.length} ${group.items.length === 1 ? 'document' : 'documents'}`,
+              content: (
+                <Stack gap="none" role="list" aria-label={group.label}>
+                  {group.items.map(doc => {
+                    const isSelected = doc.id === selectedId;
+                    return (
+                      <div key={doc.id} role="listitem">
+                        <button
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => setSelectedId(doc.id)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 'var(--ink-spacing-150)', width: '100%', textAlign: 'left', cursor: 'pointer',
+                            padding: 'var(--ink-spacing-100) var(--ink-spacing-150)', border: 'none', borderRadius: 'var(--ink-radius-100, 8px)',
+                            background: isSelected ? 'var(--ink-cobalt-10, #eef0ff)' : 'transparent', font: 'inherit', color: 'inherit',
+                          }}
+                        >
+                          <Icon name="document" size={20} color={isSelected ? 'var(--ink-cobalt-90)' : undefined} />
+                          <span style={{ flex: 1, minWidth: 0 }}>
+                            <Text size="sm" weight={isSelected ? 'semibold' : 'medium'}>{doc.name}</Text>
+                            <Text size="xs" color="secondary">{groupBy === 'Type' ? formatEmployeeDocDate(doc.ageDays) : `${doc.type} · ${formatEmployeeDocDate(doc.ageDays)}`}</Text>
+                          </span>
+                          <Badge kind={EMPLOYEE_DOC_STATUS_KIND[doc.status]} text={doc.status} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </Stack>
+              ),
+            }))}
+          />
+        </Stack>
+
+        <aside aria-label="Document preview">
+          <Card radius="medium">
+            <Card.Body>
+              {selected ? (
+                <Stack gap="medium">
+                  <Stack gap="small">
+                    <Inline gap="small" align="center">
+                      <Icon name="document" size={20} color="var(--ink-cobalt-90)" />
+                      <Text size="md" weight="semibold">{selected.name}</Text>
+                    </Inline>
+                    <div><Badge kind={EMPLOYEE_DOC_STATUS_KIND[selected.status]} text={selected.status} /></div>
+                  </Stack>
+                  {[
+                    { label: 'Document type', value: selected.type },
+                    { label: 'Last activity', value: formatEmployeeDocDate(selected.ageDays) },
+                    { label: 'Parties', value: selected.parties },
+                    { label: 'Legal entity', value: entity.name },
+                  ].map(row => (
+                    <Stack key={row.label} gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
+                      <Text size="xs" color="secondary">{row.label}</Text>
+                      <Text size="sm">{row.value}</Text>
+                    </Stack>
+                  ))}
+                  <Inline gap="small">
+                    <Button kind="brand" size="small">Open document</Button>
+                    <Button kind="secondary" size="small">Download</Button>
+                  </Inline>
+                </Stack>
+              ) : (
+                <Text size="sm" color="secondary">Select a document to preview its details.</Text>
+              )}
+            </Card.Body>
+          </Card>
+        </aside>
+      </div>
+    </Stack>
+  );
+}
+
+function EmployeeSearchResults({ rows, query, onOpen }: { rows: EmployeeFile[]; query: string; onOpen: (employee: EmployeeFile) => void }) {
   const sorted = useMemo(() => [...rows].sort((a, b) => a.name.localeCompare(b.name) || a.workerId.localeCompare(b.workerId)), [rows]);
   const nameCounts = sorted.reduce<Record<string, number>>((acc, employee) => ({ ...acc, [employee.name]: (acc[employee.name] ?? 0) + 1 }), {});
   const duplicateNames = Object.keys(nameCounts).filter(name => nameCounts[name] > 1);
@@ -3891,11 +4120,6 @@ function EmployeeSearchResults({ rows, query }: { rows: EmployeeFile[]; query: s
         {duplicateNames.length > 0 && (
           <Banner kind="warning" closable={false} lineWrap>
             {duplicateNames.map(name => `${nameCounts[name]} employees are named ${name}`).join('; ')}. Compare worker ID, legal entity, and work email before opening a file.
-          </Banner>
-        )}
-        {opened && (
-          <Banner kind="success" closable onClose={() => setOpened(null)}>
-            Opened employee file for {opened.name} ({opened.workerId}).
           </Banner>
         )}
         <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
@@ -3938,7 +4162,7 @@ function EmployeeSearchResults({ rows, query }: { rows: EmployeeFile[]; query: s
                         ))}
                       </div>
                     </Stack>
-                    <Button kind="secondary" size="small" onClick={() => setOpened(employee)} aria-label={`Open file for ${employee.name}, worker ID ${employee.workerId}`}>
+                    <Button kind="secondary" size="small" onClick={() => onOpen(employee)} aria-label={`Open file for ${employee.name}, worker ID ${employee.workerId}`}>
                       Open file
                     </Button>
                   </Inline>
@@ -3994,6 +4218,7 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
   onSearchChange: (value: string) => void;
 }) {
   const [status, setStatus] = useState<'All statuses' | EmployeeStatus>('All statuses');
+  const [openedEmployee, setOpenedEmployee] = useState<EmployeeFile | null>(null);
 
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -4024,7 +4249,7 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
         <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
           <Icon name="folder" size={20} color="var(--ink-cobalt-90)" />
           <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-            <Text size="sm" weight="medium">{row.name}</Text>
+            <Button kind="tertiary" size="small" onClick={() => setOpenedEmployee(row)} aria-label={`Open file for ${row.name}, worker ID ${row.workerId}`}>{row.name}</Button>
             <Text size="xs" color="secondary">{row.workerId}</Text>
           </Stack>
         </Inline>
@@ -4048,6 +4273,14 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
     { key: 'files', header: 'Files', width: '8%', sortable: true, cell: row => <Text size="sm">{row.files}</Text> },
     { key: 'updated', header: 'Last updated', width: '14%', sortable: true, cell: row => <Text size="sm">{row.updated}</Text> },
   ];
+
+  if (openedEmployee) {
+    return (
+      <AgreementTableView pageHeader={<PageHeader title="Employee Files" />} filterBar={<span />}>
+        <EmployeeFileWorkspace employee={openedEmployee} onBack={() => setOpenedEmployee(null)} />
+      </AgreementTableView>
+    );
+  }
 
   return (
     <AgreementTableView
@@ -4080,7 +4313,7 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
             <Text size="sm" weight="medium">{scopeTrail.join(' / ')}</Text>
             <Text size="sm" color="secondary">Results for &ldquo;{search.trim()}&rdquo;</Text>
           </Inline>
-          <EmployeeSearchResults rows={rows} query={search.trim()} />
+          <EmployeeSearchResults rows={rows} query={search.trim()} onOpen={setOpenedEmployee} />
         </Stack>
       ) : (
       <Stack gap="small">
