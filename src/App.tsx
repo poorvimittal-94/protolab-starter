@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════�������������════════════════════════════════
+/* ══════�����������════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -4286,139 +4286,6 @@ function getPeopleSidebar(scope: string, onScopeChange: (scope: string) => void)
   };
 }
 
-type DocFilterId = 'all' | 'action' | 'progress' | 'completed' | 'attention';
-
-const DOC_FILTERS: { id: DocFilterId; label: string; hint: string; match: (doc: EmployeeDoc) => boolean }[] = [
-  { id: 'all', label: 'All documents', hint: 'Every document in view', match: () => true },
-  { id: 'action', label: 'Action needed', hint: 'Waiting on HR review', match: doc => doc.status === 'Needs review' },
-  { id: 'progress', label: 'In progress', hint: 'Out for signature', match: doc => doc.status === 'Out for signature' },
-  { id: 'completed', label: 'Completed', hint: 'Signed and filed', match: doc => doc.status === 'Completed' },
-  { id: 'attention', label: 'Needs attention', hint: 'Open for more than 14 days', match: doc => doc.status !== 'Completed' && doc.ageDays > 14 },
-];
-
-const DOC_PROGRESS: Record<EmployeeDocStatus, { value: number; wait: string }> = {
-  Completed: { value: 100, wait: 'Signed by all parties' },
-  'Out for signature': { value: 50, wait: 'Waiting on employee' },
-  'Needs review': { value: 25, wait: 'Waiting on HR review' },
-};
-
-function DocumentFilterCards({ counts, active, onSelect }: { counts: Record<DocFilterId, number>; active: DocFilterId; onSelect: (id: DocFilterId) => void }) {
-  return (
-    <div className="doc-filter-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--ink-spacing-150)' }} role="group" aria-label="Filter documents by status">
-      {DOC_FILTERS.map(filter => {
-        const selected = active === filter.id;
-        const empty = counts[filter.id] === 0 && !selected;
-        return (
-          <button
-            key={filter.id}
-            type="button"
-            className="doc-filter-card"
-            aria-pressed={selected}
-            disabled={empty}
-            aria-label={`${filter.label}, ${counts[filter.id]} documents${selected && filter.id !== 'all' ? ', selected. Select again to clear' : ''}`}
-            onClick={() => onSelect(selected && filter.id !== 'all' ? 'all' : filter.id)}
-          >
-            <Text size="xs" color="secondary">{filter.label}</Text>
-            <Text size="lg" weight="semibold">{counts[filter.id]}</Text>
-            <Text size="xs" color="secondary">{empty ? 'No documents in this scope' : filter.hint}</Text>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function GroupedDocumentTable({ rows, docsByEmployee, filter, expanded, onToggle, onOpen }: {
-  rows: EmployeeFile[];
-  docsByEmployee: Map<string, EmployeeDoc[]>;
-  filter: (typeof DOC_FILTERS)[number];
-  expanded: Set<string>;
-  onToggle: (id: string) => void;
-  onOpen: (employee: EmployeeFile) => void;
-}) {
-  return (
-    <table className="doc-table" aria-label="Documents grouped by employee">
-      <colgroup>
-        <col style={{ width: '34%' }} /><col style={{ width: '16%' }} /><col style={{ width: '18%' }} /><col style={{ width: '18%' }} /><col style={{ width: '14%' }} />
-      </colgroup>
-      <thead>
-        <tr>
-          <th scope="col"><Text size="xs" weight="semibold">Employee / document</Text></th>
-          <th scope="col"><Text size="xs" weight="semibold">Status</Text></th>
-          <th scope="col"><Text size="xs" weight="semibold">Progress</Text></th>
-          <th scope="col"><Text size="xs" weight="semibold">Legal entity</Text></th>
-          <th scope="col"><Text size="xs" weight="semibold">Last updated</Text></th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map(employee => {
-          const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
-          const allDocs = docsByEmployee.get(employee.id) ?? [];
-          const visible = allDocs.filter(filter.match);
-          const done = allDocs.filter(doc => doc.status === 'Completed').length;
-          const open = expanded.has(employee.id);
-          return [
-            <tr key={employee.id} className="doc-employee-row">
-              <td>
-                <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-                  <IconButton icon={open ? 'chevron-down' : 'chevron-right'} size="small" variant="tertiary" aria-expanded={open} aria-label={`${open ? 'Collapse' : 'Expand'} documents for ${employee.name}`} onClick={() => onToggle(employee.id)} />
-                  <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-                    <Button kind="tertiary" size="small" onClick={() => onOpen(employee)} aria-label={`Open file for ${employee.name}, worker ID ${employee.workerId}`}>{employee.name}</Button>
-                    <Text size="xs" color="secondary">{employee.workerId} · {visible.length} of {allDocs.length} {allDocs.length === 1 ? 'document' : 'documents'} shown</Text>
-                  </Stack>
-                </Inline>
-              </td>
-              <td><Badge kind={EMPLOYEE_STATUS_KIND[employee.status]} text={employee.status} /></td>
-              <td>
-                <Stack gap="none" style={{ gap: 'var(--ink-spacing-50)' }}>
-                  <ProgressBar showLabel={false} showContent={false} value={allDocs.length ? Math.round((done / allDocs.length) * 100) : 0} kind={done === allDocs.length ? 'success' : 'info'} />
-                  <Text size="xs" color="secondary">{done} of {allDocs.length} completed</Text>
-                </Stack>
-              </td>
-              <td>
-                <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
-                  <Text size="sm">{entity.name}</Text>
-                  <Text size="xs" color="secondary">{entity.region} · {entity.country}</Text>
-                </Stack>
-              </td>
-              <td><Text size="sm">{employee.updated}</Text></td>
-            </tr>,
-            ...(open && visible.length === 0 ? [
-              <tr key={`${employee.id}-none`} className="doc-child-row">
-                <td colSpan={5}><Text size="sm" color="secondary">No {filter.label.toLowerCase()} documents for {employee.name} in this view.</Text></td>
-              </tr>,
-            ] : []),
-            ...(open ? visible.map(doc => (
-              <tr key={doc.id} className="doc-child-row">
-                <td>
-                  <Inline gap="small" align="center" style={{ flexWrap: 'nowrap', paddingLeft: 'var(--ink-spacing-500)' }}>
-                    <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 40, flex: 'none', background: 'var(--ink-neutral-0, #fff)', border: 'var(--ink-border-width-xs, 1px) solid var(--ink-border-color-subtle, var(--ink-neutral-30))', borderRadius: 'var(--ink-radius-size-xs, 4px)' }}>
-                      <Icon name="document" size={16} />
-                    </span>
-                    <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-                      <Text size="sm" weight="medium">{doc.name}</Text>
-                      <Text size="xs" color="secondary">{doc.type}</Text>
-                    </Stack>
-                  </Inline>
-                </td>
-                <td><Badge kind={EMPLOYEE_DOC_STATUS_KIND[doc.status]} text={doc.status} /></td>
-                <td>
-                  <Stack gap="none" style={{ gap: 'var(--ink-spacing-50)' }}>
-                    <ProgressBar showLabel={false} showContent={false} value={DOC_PROGRESS[doc.status].value} kind={doc.status === 'Completed' ? 'success' : 'info'} />
-                    <Text size="xs" color="secondary">{DOC_PROGRESS[doc.status].wait}</Text>
-                  </Stack>
-                </td>
-                <td><Text size="xs" color="secondary">{doc.parties}</Text></td>
-                <td><Text size="sm">{formatEmployeeDocDate(doc.ageDays)}</Text></td>
-              </tr>
-            )) : []),
-          ];
-        })}
-      </tbody>
-    </table>
-  );
-}
-
 function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
   scope: string;
   onScopeChange: (scope: string) => void;
@@ -4427,8 +4294,6 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
 }) {
   const [status, setStatus] = useState<'All statuses' | EmployeeStatus>('All statuses');
   const [openedEmployee, setOpenedEmployee] = useState<EmployeeFile | null>(null);
-  const [docFilter, setDocFilter] = useState<DocFilterId>('all');
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['emp-1', 'emp-4']));
 
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -4448,28 +4313,40 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
     ...PEOPLE_REGIONS.map(region => ({ id: region, label: region })),
     ...LEGAL_ENTITIES.map(entity => ({ id: entity.id, label: `${entity.name} (${entity.country})` })),
   ];
-  const docsByEmployee = useMemo(() => new Map(EMPLOYEE_FILES_DATA.map(employee => [employee.id, getEmployeeDocs(employee)])), []);
-  const activeFilter = DOC_FILTERS.find(item => item.id === docFilter)!;
-  const counts = useMemo(() => {
-    const result = {} as Record<DocFilterId, number>;
-    DOC_FILTERS.forEach(filter => {
-      result[filter.id] = rows.reduce((sum, employee) => sum + (docsByEmployee.get(employee.id) ?? []).filter(filter.match).length, 0);
-    });
-    return result;
-  }, [rows, docsByEmployee]);
-  const visibleDocTotal = counts[docFilter];
-  const searchRows = docFilter === 'all' ? rows : rows.filter(employee => (docsByEmployee.get(employee.id) ?? []).some(activeFilter.match));
-  const toggleExpanded = (id: string) => setExpanded(current => {
-    const next = new Set(current);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
-  const clearDocFilter = () => setDocFilter('all');
-  const activeChips: { key: string; label: string; onDismiss: () => void }[] = [
-    ...(docFilter !== 'all' ? [{ key: 'doc', label: `Status: ${activeFilter.label}`, onDismiss: clearDocFilter }] : []),
-    ...(status !== 'All statuses' ? [{ key: 'emp', label: `Employment: ${status}`, onDismiss: () => setStatus('All statuses') }] : []),
-    ...(scope !== PEOPLE_ALL_SCOPE ? [{ key: 'scope', label: `Scope: ${getPeopleScopeLabel(scope)}`, onDismiss: () => onScopeChange(PEOPLE_ALL_SCOPE) }] : []),
-    ...(search.trim() ? [{ key: 'search', label: `Search: ${search.trim()}`, onDismiss: () => onSearchChange('') }] : []),
+  const fileTotal = rows.reduce((sum, employee) => sum + employee.files, 0);
+
+  const columns: DataTableColumn<EmployeeFile>[] = [
+    {
+      key: 'name',
+      header: 'Employee',
+      sortable: true,
+      cell: row => (
+        <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
+          <Icon name="folder" size={20} color="var(--ink-cobalt-90)" />
+          <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
+            <Button kind="tertiary" size="small" onClick={() => setOpenedEmployee(row)} aria-label={`Open file for ${row.name}, worker ID ${row.workerId}`}>{row.name}</Button>
+            <Text size="xs" color="secondary">{row.workerId}</Text>
+          </Stack>
+        </Inline>
+      ),
+    },
+    {
+      key: 'entity',
+      header: 'Legal entity',
+      cell: row => {
+        const entity = LEGAL_ENTITIES.find(item => item.id === row.entityId)!;
+        return (
+          <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
+            <Text size="sm">{entity.name}</Text>
+            <Text size="xs" color="secondary">{entity.region} · {entity.country}</Text>
+          </Stack>
+        );
+      },
+    },
+    { key: 'status', header: 'Employment status', width: '16%', cell: row => <Badge kind={EMPLOYEE_STATUS_KIND[row.status]} text={row.status} /> },
+    { key: 'email', header: 'Work email', cell: row => <Text size="sm">{row.email}</Text> },
+    { key: 'files', header: 'Files', width: '8%', sortable: true, cell: row => <Text size="sm">{row.files}</Text> },
+    { key: 'updated', header: 'Last updated', width: '14%', sortable: true, cell: row => <Text size="sm">{row.updated}</Text> },
   ];
 
   if (openedEmployee) {
@@ -4504,41 +4381,36 @@ function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
         />
       }
     >
-      <Stack gap="medium">
-        <DocumentFilterCards counts={counts} active={docFilter} onSelect={setDocFilter} />
+      {search.trim() ? (
         <Stack gap="small">
           <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
             <Icon name="folder-open" size={16} />
             <Text size="sm" weight="medium">{scopeTrail.join(' / ')}</Text>
-            <Text size="sm" color="secondary" aria-live="polite">
-              {search.trim() ? `${searchRows.length} ${searchRows.length === 1 ? 'employee' : 'employees'} · ` : ''}{visibleDocTotal} {visibleDocTotal === 1 ? 'document' : 'documents'} in view
-            </Text>
+            <Text size="sm" color="secondary">Results for &ldquo;{search.trim()}&rdquo;</Text>
           </Inline>
-          {activeChips.length > 0 && (
-            <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }} role="group" aria-label="Active filters">
-              {activeChips.map(chip => <FilterTag key={chip.key} label={chip.label} active dismissible onDismiss={chip.onDismiss} />)}
-              {docFilter !== 'all' && <Button kind="tertiary" size="small" onClick={clearDocFilter}>Clear filter</Button>}
-            </Inline>
-          )}
+          <EmployeeSearchResults rows={rows} query={search.trim()} onOpen={setOpenedEmployee} />
         </Stack>
-        {visibleDocTotal === 0 ? (
-          <Card radius="medium">
-            <Card.Body>
-              <Stack gap="small" align="center" style={{ padding: 'var(--ink-spacing-300)', textAlign: 'center' }}>
-                <Icon name="document" size={32} />
-                <Heading level={3}>No {activeFilter.label.toLowerCase()} documents found</Heading>
-                <Text size="sm" color="secondary">Nothing matches &ldquo;Status: {activeFilter.label}&rdquo; within {scopeTrail.join(' / ')}{search.trim() ? ` for “${search.trim()}”` : ''}.</Text>
-                <Button kind="secondary" size="small" onClick={clearDocFilter}>Clear filter</Button>
-              </Stack>
-            </Card.Body>
-          </Card>
-        ) : search.trim() ? (
-          <EmployeeSearchResults rows={searchRows} query={search.trim()} onOpen={setOpenedEmployee} />
-        ) : (
-          <GroupedDocumentTable rows={rows} docsByEmployee={docsByEmployee} filter={activeFilter} expanded={expanded} onToggle={toggleExpanded} onOpen={setOpenedEmployee} />
-        )}
+      ) : (
+      <Stack gap="small">
+        <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
+          <Icon name="folder-open" size={16} />
+          <Text size="sm" weight="medium">{scopeTrail.join(' / ')}</Text>
+          <Text size="sm" color="secondary" aria-live="polite">
+            {rows.length} {rows.length === 1 ? 'employee' : 'employees'} · {fileTotal} files in view
+          </Text>
+        </Inline>
+        <DataTable
+          columns={columns}
+          data={rows}
+          getRowKey={row => row.id}
+          stickyHeader
+          showColumnControl
+          rowHeight="tall"
+          emptyMessage="No employee files match this scope and search"
+          pagination={{ page: 1, pageSize: 25, totalItems: rows.length, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true }}
+        />
       </Stack>
-    
+      )}
     </AgreementTableView>
   );
 }
