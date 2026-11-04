@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, useId, type CSSProperties } from 'react';
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, useId, useSyncExternalStore, type CSSProperties } from 'react';
 import powerFormsEmptyArt from '@/assets/powerforms-empty.svg';
 import {
   DocuSignShell,
@@ -253,7 +253,7 @@ type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | '
 type TemplatesSidebarView = 'my-templates' | 'shared-with-me' | 'favorites' | 'all-templates' | 'clauses' | 'document-templates' | 'workspace-templates' | 'workflow-templates' | 'my-web-forms' | 'shared-web-forms' | 'all-web-forms' | 'template-gallery' | 'elastic-templates';
 type InsightsSidebarView = 'overview' | 'dashboards' | 'reports' | 'my-dashboard' | 'admin-dashboard' | 'agreements-dashboard' | 'obligations-dashboard' | 'renewals-dashboard' | 'requests-dashboard' | 'ai-usage-dashboard' | 'procurement-hub' | 'custom-obligations' | 'custom-dashboard';
 
-/* ═══════════════════════════════════════
+/* ════════════════════════��══════════════
    Agreements Data
    ═══════════════════════════════════════ */
 
@@ -586,6 +586,299 @@ const personColumns: DataTableColumn<Person>[] = [
 
 const PARTY_FILTER_ALL = 'All';
 
+/* ── Parties store: module-level so merges survive navigating between views ── */
+interface PartiesState { organizations: Organization[]; people: Person[] }
+let partiesState: PartiesState = { organizations: ORGANIZATIONS_DATA, people: PEOPLE_DATA };
+const partiesListeners = new Set<() => void>();
+const subscribeParties = (listener: () => void) => { partiesListeners.add(listener); return () => { partiesListeners.delete(listener); }; };
+const getPartiesState = () => partiesState;
+
+type MergeRecord = Organization | Person;
+type MergeValues = Record<string, string | number>;
+interface MergeField { key: string; label: string; sum?: boolean }
+
+const ORGANIZATION_MERGE_FIELDS: MergeField[] = [
+  { key: 'name', label: 'Organization name' },
+  { key: 'role', label: 'Role' },
+  { key: 'side', label: 'Party side' },
+  { key: 'location', label: 'Location' },
+  { key: 'activeAgreements', label: 'Active agreements', sum: true },
+  { key: 'totalAgreements', label: 'Total agreements', sum: true },
+];
+const PERSON_MERGE_FIELDS: MergeField[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'organization', label: 'Organization' },
+  { key: 'title', label: 'Job title' },
+  { key: 'side', label: 'Party side' },
+  { key: 'activeAgreements', label: 'Active agreements', sum: true },
+];
+
+const readField = (record: MergeRecord, key: string): string | number => (record as unknown as MergeValues)[key] ?? '';
+const isBlank = (value: string | number) => String(value).trim() === '';
+const sameValue = (a: string | number, b: string | number) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+function applyMerge(view: PartiesView, survivorId: string, removedIds: string[], merged: MergeValues, previousNames: string[]) {
+  if (view === 'organizations') {
+    const finalName = String(merged.name);
+    partiesState = {
+      organizations: partiesState.organizations
+        .filter((org) => !removedIds.includes(org.id))
+        .map((org) => (org.id === survivorId ? ({ ...org, ...merged } as unknown as Organization) : org)),
+      people: partiesState.people.map((person) => (previousNames.includes(person.organization) ? { ...person, organization: finalName } : person)),
+    };
+  } else {
+    partiesState = {
+      ...partiesState,
+      people: partiesState.people
+        .filter((person) => !removedIds.includes(person.id))
+        .map((person) => (person.id === survivorId ? ({ ...person, ...merged } as unknown as Person) : person)),
+    };
+  }
+  partiesListeners.forEach((listener) => listener());
+}
+
+function defaultMergeChoices(records: MergeRecord[], fields: MergeField[]) {
+  const choices: Record<string, string> = {};
+  fields.filter((field) => !field.sum).forEach((field) => {
+    choices[field.key] = (records.find((record) => !isBlank(readField(record, field.key))) ?? records[0]).id;
+  });
+  return choices;
+}
+
+function MergePartiesFlow({ view, records, onClose, onConfirm }: {
+  view: PartiesView;
+  records: MergeRecord[];
+  onClose: () => void;
+  onConfirm: (merged: MergeValues) => Promise<void>;
+}) {
+  const fields = view === 'organizations' ? ORGANIZATION_MERGE_FIELDS : PERSON_MERGE_FIELDS;
+  const singular = view === 'organizations' ? 'organization' : 'person';
+  const plural = view === 'organizations' ? 'organizations' : 'people';
+  const groupId = useId();
+  const [stage, setStage] = useState<'compare' | 'confirm'>('compare');
+  const [choices, setChoices] = useState(() => defaultMergeChoices(records, fields));
+  const [highlight, setHighlight] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const merged = useMemo<MergeValues>(() => {
+    const result: MergeValues = {};
+    fields.forEach((field) => {
+      if (field.sum) {
+        result[field.key] = records.reduce((total, record) => total + Number(readField(record, field.key) || 0), 0);
+      } else {
+        const source = records.find((record) => record.id === choices[field.key]) ?? records[0];
+        result[field.key] = readField(source, field.key);
+      }
+    });
+    return result;
+  }, [fields, records, choices]);
+
+  const differs = (field: MergeField) => !field.sum && records.some((record) => !sameValue(readField(record, field.key), readField(records[0], field.key)));
+  const sourceName = (field: MergeField) => records.find((record) => record.id === choices[field.key])?.name ?? records[0].name;
+  const differingCount = fields.filter(differs).length;
+  const sideConflict = fields.some((field) => field.key === 'side' && differs(field));
+  const displayValue = (value: string | number) => (isBlank(value) ? 'No value' : String(value));
+
+  const confirm = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      await onConfirm(merged);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong while merging.');
+      setSubmitting(false);
+    }
+  };
+
+  if (stage === 'confirm') {
+    return (
+      <Modal
+        open
+        size="medium"
+        title="Confirm merge"
+        onClose={submitting ? undefined : onClose}
+        closeOnEscape={!submitting}
+        closeOnBackdropClick={false}
+        footer={
+          <Inline justify="end" gap="small">
+            <Button kind="tertiary" onClick={onClose} disabled={submitting}>Cancel</Button>
+            <Button kind="secondary" onClick={() => { setError(''); setStage('compare'); }} disabled={submitting}>Back</Button>
+            <Button kind="danger" loading={submitting} onClick={confirm}>{error ? 'Try again' : 'Confirm merge'}</Button>
+          </Inline>
+        }
+      >
+        <Stack gap="medium">
+          <Banner kind="warning" closable={false} lineWrap>
+            {`This can't be undone. The ${records.length} ${plural} below will be replaced by one ${singular}, and their agreements will be combined.`}
+          </Banner>
+          {error && <Banner kind="danger" closable={false} lineWrap>{error}</Banner>}
+          <Stack gap="small">
+            <Heading level={3}>{`${records.length} ${plural} being merged`}</Heading>
+            <ul className="merge-summary-list" aria-label={`${plural} being merged`}>
+              {records.map((record, index) => (
+                <li key={record.id}>
+                  <Inline gap="small" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
+                    <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
+                      {view === 'people' && <Avatar size="small" initials={initialsOf(record.name)} />}
+                      <Text size="sm" weight="semibold">{record.name}</Text>
+                    </Inline>
+                    <Badge kind={index === 0 ? 'emphasis' : 'subtle'}>{index === 0 ? 'Primary record' : 'Will be removed'}</Badge>
+                  </Inline>
+                </li>
+              ))}
+            </ul>
+          </Stack>
+          <Stack gap="small">
+            <Heading level={3}>Resulting record</Heading>
+            <MergePreviewCard view={view} fields={fields} merged={merged} count={records.length} sourceName={sourceName} differs={differs} showSources={false} />
+          </Stack>
+        </Stack>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal
+      open
+      size="xlarge"
+      title={`Merge ${records.length} ${plural}`}
+      onClose={onClose}
+      footer={
+        <Inline justify="end" gap="small">
+          <Button kind="secondary" onClick={onClose}>Cancel</Button>
+          <Button kind="primary" onClick={() => setStage('confirm')}>Review merge</Button>
+        </Inline>
+      }
+    >
+      <Stack gap="medium">
+        <Inline justify="between" align="center" gap="medium" style={{ flexWrap: 'wrap' }}>
+          <Text size="sm" color="secondary">
+            {differingCount > 0
+              ? `${differingCount} ${differingCount === 1 ? 'field differs' : 'fields differ'}. Choose the value to keep for each. Agreement counts are combined.`
+              : 'These records match on every field. Agreement counts are combined.'}
+          </Text>
+          <Switch label="Highlight differences" checked={highlight} onChange={setHighlight} />
+        </Inline>
+        {sideConflict && <Banner kind="warning" closable={false} lineWrap>These records have different party sides. Check which side is correct before you merge.</Banner>}
+        <div className="merge-layout">
+          <div className="merge-scroll">
+            <div className="merge-grid" style={{ '--merge-cols': records.length } as CSSProperties}>
+              <div className="merge-row merge-head" aria-hidden="true">
+                <Text size="xs" color="secondary" weight="semibold">Field</Text>
+                {records.map((record, index) => (
+                  <Stack gap="none" key={record.id}>
+                    <Text size="sm" weight="semibold">{record.name}</Text>
+                    <Text size="xs" color="secondary">{index === 0 ? 'Primary record' : `Record ${index + 1}`}</Text>
+                  </Stack>
+                ))}
+              </div>
+              {fields.map((field) => {
+                const isDifferent = differs(field);
+                const marked = highlight && isDifferent;
+                const rowClass = `merge-row${marked ? ' merge-row--differs' : ''}`;
+                const label = (
+                  <div className="merge-label">
+                    <Text size="sm" weight="semibold">{field.label}</Text>
+                    {field.sum && <Text size="xs" color="secondary">Combined</Text>}
+                    {marked && <Badge kind="warning">Differs</Badge>}
+                  </div>
+                );
+                if (field.sum) {
+                  return (
+                    <div key={field.key} className={rowClass}>
+                      {label}
+                      {records.map((record) => <div key={record.id} className="merge-cell"><Text size="sm">{String(readField(record, field.key))}</Text></div>)}
+                    </div>
+                  );
+                }
+                if (!isDifferent) {
+                  return (
+                    <div key={field.key} className={rowClass}>
+                      {label}
+                      <div className="merge-cell merge-cell--span">
+                        <Text size="sm">{displayValue(readField(records[0], field.key))}</Text>
+                        <Text size="xs" color="secondary">Same in all records</Text>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={field.key} className={rowClass} role="radiogroup" aria-label={field.label}>
+                    {label}
+                    {records.map((record) => {
+                      const value = readField(record, field.key);
+                      const checked = choices[field.key] === record.id;
+                      return (
+                        <div key={record.id} className={`merge-cell${checked ? ' merge-cell--selected' : ''}`}>
+                          <Radio
+                            name={`${groupId}-${field.key}`}
+                            value={record.id}
+                            checked={checked}
+                            onChange={() => setChoices((current) => ({ ...current, [field.key]: record.id }))}
+                            label={displayValue(value)}
+                            aria-label={`${displayValue(value)}, from ${record.name}`}
+                          />
+                          <span className="merge-source">{`From ${record.name}`}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <div className="merge-preview">
+            <Heading level={3}>Merged record preview</Heading>
+            <MergePreviewCard view={view} fields={fields} merged={merged} count={records.length} sourceName={sourceName} differs={differs} showSources />
+          </div>
+        </div>
+      </Stack>
+    </Modal>
+  );
+}
+
+function MergePreviewCard({ view, fields, merged, count, sourceName, differs, showSources }: {
+  view: PartiesView;
+  fields: MergeField[];
+  merged: MergeValues;
+  count: number;
+  sourceName: (field: MergeField) => string;
+  differs: (field: MergeField) => boolean;
+  showSources: boolean;
+}) {
+  const singular = view === 'organizations' ? 'Organization' : 'Person';
+  return (
+    <div className="merge-preview-card">
+      <Inline gap="small" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
+        <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
+          {view === 'people' && <Avatar size="medium" initials={initialsOf(String(merged.name))} />}
+          <Stack gap="none">
+            <Text weight="semibold">{String(merged.name) || 'Untitled'}</Text>
+            <Text size="xs" color="secondary">{`Replaces ${count} records`}</Text>
+          </Stack>
+        </Inline>
+        <Badge kind="emphasis">{`Merged ${singular.toLowerCase()}`}</Badge>
+      </Inline>
+      <dl className="merge-preview-list" aria-live="polite">
+        {fields.filter((field) => field.key !== 'name').map((field) => {
+          const value = merged[field.key];
+          return (
+            <div key={field.key}>
+              <dt><Text size="xs" color="secondary">{field.label}</Text></dt>
+              <dd>
+                <Text size="sm" weight="semibold">{isBlank(value) ? 'No value' : String(value)}</Text>
+                {showSources && (field.sum ? <Text size="xs" color="secondary">{`Combined from ${count} records`}</Text> : differs(field) && <Text size="xs" color="secondary">{`From ${sourceName(field)}`}</Text>)}
+              </dd>
+            </div>
+          );
+        })}
+      </dl>
+    </div>
+  );
+}
+
 function PartyFilterMenu({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
   return (
     <Dropdown
@@ -598,7 +891,16 @@ function PartyFilterMenu({ label, value, options, onChange }: { label: string; v
   );
 }
 
-function PartiesPage({ view, onAskIris }: { view: PartiesView; onAskIris: () => void }) {
+function PartiesPage(props: { view: PartiesView; onAskIris: () => void }) {
+  return <ToastProvider><PartiesPageContent {...props} /></ToastProvider>;
+}
+
+function PartiesPageContent({ view, onAskIris }: { view: PartiesView; onAskIris: () => void }) {
+  const { toast } = useToast();
+  const { organizations: allOrganizations, people: allPeople } = useSyncExternalStore(subscribeParties, getPartiesState);
+  const simulateFailure = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('merge') === 'fail';
+  const mergeAttempts = useRef(0);
+  const [mergeRecords, setMergeRecords] = useState<MergeRecord[] | null>(null);
   const isOrganizations = view === 'organizations';
   const forceEmpty = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('parties') === 'empty';
 
@@ -608,33 +910,31 @@ function PartiesPage({ view, onAskIris }: { view: PartiesView; onAskIris: () => 
   const [filterB, setFilterB] = useState(PARTY_FILTER_ALL);
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
   const [sort, setSort] = useState<{ column?: string; direction: 'ascending' | 'descending' | null }>({ direction: null });
-  const [notice, setNotice] = useState('');
-
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 500);
     return () => window.clearTimeout(timer);
   }, []);
 
-  const organizationNames = useMemo(() => [...new Set(PEOPLE_DATA.map((person) => person.organization))].sort(), []);
-  const roleNames = useMemo(() => [...new Set(ORGANIZATIONS_DATA.map((org) => org.role))].sort(), []);
+  const organizationNames = useMemo(() => [...new Set(allPeople.map((person) => person.organization))].sort(), [allPeople]);
+  const roleNames = useMemo(() => [...new Set(allOrganizations.map((org) => org.role))].sort(), [allOrganizations]);
 
   const organizations = useMemo(() => {
     if (forceEmpty) return [];
     const q = search.trim().toLowerCase();
-    return ORGANIZATIONS_DATA.filter((org) =>
+    return allOrganizations.filter((org) =>
       (filterA === PARTY_FILTER_ALL || org.role === filterA) &&
       (filterB === PARTY_FILTER_ALL || org.side === filterB) &&
       (!q || org.name.toLowerCase().includes(q) || org.location.toLowerCase().includes(q) || org.role.toLowerCase().includes(q)));
-  }, [forceEmpty, search, filterA, filterB]);
+  }, [forceEmpty, allOrganizations, search, filterA, filterB]);
 
   const people = useMemo(() => {
     if (forceEmpty) return [];
     const q = search.trim().toLowerCase();
-    return PEOPLE_DATA.filter((person) =>
+    return allPeople.filter((person) =>
       (filterA === PARTY_FILTER_ALL || person.organization === filterA) &&
       (filterB === PARTY_FILTER_ALL || person.side === filterB) &&
       (!q || person.name.toLowerCase().includes(q) || person.email.toLowerCase().includes(q) || person.organization.toLowerCase().includes(q) || person.title.toLowerCase().includes(q)));
-  }, [forceEmpty, search, filterA, filterB]);
+  }, [forceEmpty, allPeople, search, filterA, filterB]);
 
   const visibleIds = useMemo(() => new Set<string | number>((isOrganizations ? organizations : people).map((row) => row.id)), [isOrganizations, organizations, people]);
 
@@ -645,6 +945,29 @@ function PartiesPage({ view, onAskIris }: { view: PartiesView; onAskIris: () => 
       return next.size === current.size ? current : next;
     });
   }, [visibleIds]);
+
+  const filterOptions = isOrganizations ? roleNames : organizationNames;
+  useEffect(() => {
+    if (filterA !== PARTY_FILTER_ALL && !filterOptions.includes(filterA)) setFilterA(PARTY_FILTER_ALL);
+  }, [filterA, filterOptions]);
+
+  const openMerge = () => {
+    const rows: MergeRecord[] = isOrganizations ? allOrganizations : allPeople;
+    setMergeRecords(rows.filter((row) => selected.has(row.id)));
+  };
+
+  const handleMerge = async (merged: MergeValues) => {
+    if (!mergeRecords) return;
+    await new Promise((resolve) => window.setTimeout(resolve, 900));
+    mergeAttempts.current += 1;
+    if (simulateFailure && mergeAttempts.current === 1) throw new Error("We couldn't complete the merge. Nothing was changed. Try again.");
+    const [survivor, ...removed] = mergeRecords;
+    applyMerge(view, survivor.id, removed.map((record) => record.id), merged, mergeRecords.map((record) => record.name));
+    const count = mergeRecords.length;
+    setMergeRecords(null);
+    setSelected(new Set());
+    toast({ kind: 'success', children: `Merged ${count} ${isOrganizations ? 'organizations' : 'people'} into ${String(merged.name)}.` });
+  };
 
   const filtersActive = Boolean(search) || filterA !== PARTY_FILTER_ALL || filterB !== PARTY_FILTER_ALL;
   const clearAll = () => { setSearch(''); setFilterA(PARTY_FILTER_ALL); setFilterB(PARTY_FILTER_ALL); };
@@ -658,7 +981,7 @@ function PartiesPage({ view, onAskIris }: { view: PartiesView; onAskIris: () => 
         kind="secondary"
         size="small"
         disabled={selected.size < 2}
-        onClick={() => setNotice(`Merge isn't available in this prototype yet. ${selected.size} ${noun} selected.`)}
+        onClick={openMerge}
       >
         Merge
       </Button>
@@ -688,7 +1011,6 @@ function PartiesPage({ view, onAskIris }: { view: PartiesView; onAskIris: () => 
   return (
     <AgreementTableView
       paddingVariant="default"
-      banner={notice ? <Banner kind="information" closable onClose={() => setNotice('')}>{notice}</Banner> : undefined}
       pageHeader={
         <Stack gap="small" style={{ width: '100%' }}>
           <PageHeader
@@ -738,6 +1060,7 @@ function PartiesPage({ view, onAskIris }: { view: PartiesView; onAskIris: () => 
       ) : (
         <DataTable {...tableProps} columns={personColumns} data={people} getRowKey={(row) => row.id} />
       )}
+      {mergeRecords && <MergePartiesFlow view={view} records={mergeRecords} onClose={() => setMergeRecords(null)} onConfirm={handleMerge} />}
     </AgreementTableView>
   );
 }
@@ -893,7 +1216,7 @@ const workspaceColumns: DataTableColumn<Workspace>[] = [
 
 /* ═══════════════════════════════════════
    Templates Data (matches real DocuSign)
-   ════════════════════════════════��══════ */
+   ═════════════════��══════════════��══════ */
 
 interface TemplateItem {
   id: string;
