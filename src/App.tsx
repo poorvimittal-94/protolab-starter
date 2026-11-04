@@ -3950,6 +3950,55 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
   const waiting = docs.filter(doc => doc.status === 'Out for signature').length;
   const review = docs.filter(doc => doc.status === 'Needs review').length;
 
+  const expectedTypes: string[] = employee.status === 'Pre-hire'
+    ? [EMPLOYEE_DOC_TYPES[0]]
+    : employee.status === 'Terminated'
+      ? [...EMPLOYEE_DOC_TYPES]
+      : EMPLOYEE_DOC_TYPES.slice(0, 3);
+  const missingTypes = expectedTypes.filter(type => !docs.some(doc => doc.type === type));
+  const unresolved = waiting + review;
+  const hasDoc = (name: string) => docs.some(doc => doc.name === name && doc.status === 'Completed');
+  const offboardingDocs = docs.filter(doc => doc.type === 'Offboarding');
+  const offboardingOpen = offboardingDocs.filter(doc => doc.status !== 'Completed').length;
+  const pending = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
+
+  type CheckResult = { label: string; result: 'Ready' | 'Needs attention' | 'Not applicable'; reason: string };
+  const checks: CheckResult[] = [
+    missingTypes.length > 0
+      ? { label: 'Audit', result: 'Needs attention', reason: `No ${missingTypes.join(', ').toLowerCase()} documents found for this employee.` }
+      : unresolved > 0
+        ? { label: 'Audit', result: 'Needs attention', reason: `${pending(unresolved, 'document')} still ${unresolved === 1 ? 'needs' : 'need'} a signature or review.` }
+        : { label: 'Audit', result: 'Ready', reason: 'Every expected document type is present and signed.' },
+    employee.status !== 'Terminated'
+      ? { label: 'Offboarding check', result: 'Not applicable', reason: `${employee.name.split(' ')[0]} is ${employee.status === 'Pre-hire' ? 'not yet hired' : 'still employed'}, so no offboarding records are expected.` }
+      : offboardingDocs.length === 0
+        ? { label: 'Offboarding check', result: 'Needs attention', reason: 'No offboarding documents found.' }
+        : offboardingOpen > 0
+          ? { label: 'Offboarding check', result: 'Needs attention', reason: `${pending(offboardingOpen, 'offboarding document')} not yet complete.` }
+          : { label: 'Offboarding check', result: 'Ready', reason: 'Separation, property return and final pay records are all signed.' },
+    hasDoc('Offer letter') && hasDoc('Employment agreement')
+      ? { label: 'Employee verification', result: 'Ready', reason: 'Signed offer letter and employment agreement are on file.' }
+      : { label: 'Employee verification', result: 'Needs attention', reason: 'The signed offer letter or employment agreement is not on file yet.' },
+  ];
+  const needsAttention = checks.filter(check => check.result === 'Needs attention').length;
+  const completenessHeadline = missingTypes.length > 0
+    ? 'Some records are missing from this file'
+    : unresolved > 0
+      ? 'File is complete, with items still in progress'
+      : 'File is complete';
+  const completenessBody = missingTypes.length > 0
+    ? `We expected ${expectedTypes.length} document ${expectedTypes.length === 1 ? 'type' : 'types'} for ${employee.status.toLowerCase()} employees and found ${expectedTypes.length - missingTypes.length}. Missing: ${missingTypes.join(', ')}.`
+    : unresolved > 0
+      ? `All ${expectedTypes.length} expected document ${expectedTypes.length === 1 ? 'type is' : 'types are'} present. ${pending(waiting, 'document')} out for signature and ${pending(review, 'document')} waiting on review will change the totals once finished.`
+      : `All ${expectedTypes.length} expected document ${expectedTypes.length === 1 ? 'type is' : 'types are'} present and every document is signed.`;
+  const scopeRows: { label: string; value: string }[] = [
+    { label: 'Showing', value: `All ${docs.length} documents. No filters applied.` },
+    { label: 'Source', value: `Docusign agreements linked to worker ID ${employee.workerId}` },
+    { label: 'Employment record', value: `${employee.status} (from HR system, synced ${employee.updated})` },
+    { label: 'Expected for this file', value: expectedTypes.join(', ') },
+  ];
+  const checkKind: Record<CheckResult['result'], 'success' | 'emphasis' | 'subtle'> = { Ready: 'success', 'Needs attention': 'emphasis', 'Not applicable': 'subtle' };
+
   const groupOrder = groupBy === 'Type' ? (EMPLOYEE_DOC_TYPES as readonly string[]) : ['Last 90 days', 'Earlier this year', 'Prior years'];
   const groups = groupOrder
     .map(label => ({
@@ -4008,7 +4057,49 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
         </Card.Body>
       </Card>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--ink-spacing-150)' }} role="group" aria-label="Document summary">
+      <section aria-labelledby="file-completeness-heading">
+        <Card radius="medium">
+          <Card.Body>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', gap: 'var(--ink-spacing-300)', alignItems: 'start' }}>
+              <Stack gap="medium">
+                <Stack gap="none" style={{ gap: 'var(--ink-spacing-50)' }}>
+                  <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
+                    <Heading level={3} id="file-completeness-heading">{completenessHeadline}</Heading>
+                    <Badge kind={missingTypes.length === 0 && unresolved === 0 ? 'success' : 'emphasis'} text={missingTypes.length > 0 ? 'Incomplete' : unresolved > 0 ? 'In progress' : 'Complete'} />
+                  </Inline>
+                  <Text size="sm" color="secondary">{completenessBody}</Text>
+                </Stack>
+                <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', columnGap: 'var(--ink-spacing-200)', rowGap: 'var(--ink-spacing-100)' }}>
+                  {scopeRows.map(row => (
+                    <div key={row.label} style={{ display: 'contents' }}>
+                      <dt><Text size="sm" color="secondary">{row.label}</Text></dt>
+                      <dd style={{ margin: 0 }}><Text size="sm">{row.value}</Text></dd>
+                    </div>
+                  ))}
+                </dl>
+              </Stack>
+              <Stack gap="small">
+                <Text size="sm" weight="semibold">Is this file ready for&hellip;</Text>
+                <Stack gap="none" role="list" aria-label="Readiness by use">
+                  {checks.map(check => (
+                    <div key={check.label} role="listitem" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--ink-spacing-150)', padding: 'var(--ink-spacing-100) 0' }}>
+                      <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
+                        <Text size="sm" weight="medium">{check.label}</Text>
+                        <Text size="xs" color="secondary">{check.reason}</Text>
+                      </Stack>
+                      <Badge kind={checkKind[check.result]} text={check.result} />
+                    </div>
+                  ))}
+                </Stack>
+                {needsAttention > 0 && <Text size="xs" color="secondary">{pending(needsAttention, 'check')} need attention before you rely on this file.</Text>}
+              </Stack>
+            </div>
+          </Card.Body>
+        </Card>
+      </section>
+
+      <Text size="sm" weight="semibold">Document status</Text>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--ink-spacing-150)', marginTop: 'calc(var(--ink-spacing-100) * -1)' }} role="group" aria-label="Document summary">
         {summary.map(item => (
           <Card key={item.label} radius="medium">
             <Card.Body>
