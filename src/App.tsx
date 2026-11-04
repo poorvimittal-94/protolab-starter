@@ -249,7 +249,7 @@ function FadeIn({ children, keyProp: _keyProp }: { children: React.ReactNode; ke
    ═══════════════════════════════════════ */
 
 type TabId = 'home' | 'agreements' | 'templates' | 'automations' | 'insights' | 'admin' | 'scenarios' | 'tokens';
-type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | 'deleted' | 'parties' | 'requests' | 'workspaces' | 'powerforms' | 'people';
+type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | 'deleted' | 'parties' | 'requests' | 'workspaces' | 'powerforms';
 type TemplatesSidebarView = 'my-templates' | 'shared-with-me' | 'favorites' | 'all-templates' | 'clauses' | 'document-templates' | 'workspace-templates' | 'workflow-templates' | 'my-web-forms' | 'shared-web-forms' | 'all-web-forms' | 'template-gallery' | 'elastic-templates';
 type InsightsSidebarView = 'overview' | 'dashboards' | 'reports' | 'my-dashboard' | 'admin-dashboard' | 'agreements-dashboard' | 'obligations-dashboard' | 'renewals-dashboard' | 'requests-dashboard' | 'ai-usage-dashboard' | 'procurement-hub' | 'custom-obligations' | 'custom-dashboard';
 
@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════�������������════════════════════════════════
+/* ═══════════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -491,7 +491,7 @@ const navigatorColumns: DataTableColumn<NavigatorAgreement>[] = [
   },
 ];
 
-/* ═���═════════════════════════════════════
+/* ═══════════════════════════════════════
    Parties Data (matches real DocuSign)
    ═══════════════════════════════════════ */
 
@@ -4449,8 +4449,6 @@ function PrototypeApp() {
   const [accountUsers, setAccountUsers] = useState<AccountUser[]>(ACCOUNT_USERS);
   const [accountSettings, setAccountSettings] = useState<AccountSettings>(DEFAULT_ACCOUNT_SETTINGS);
   const [adminView, setAdminView] = useState<AdminView>(ADMIN_DEFAULT_VIEW);
-  const [peopleScope, setPeopleScope] = useState<string>(PEOPLE_ALL_SCOPE);
-  const [peopleSearch, setPeopleSearch] = useState('');
   const [sidebarView, setSidebarView] = useState<SidebarView>('completed');
   const [templatesSidebarView, setTemplatesSidebarView] = useState<TemplatesSidebarView>('my-templates');
   const [templateItems, setTemplateItems] = useState<TemplateItem[]>(() => [...TEMPLATES_DATA, ...TEMPLATE_RESOURCES_DATA]);
@@ -4755,7 +4753,7 @@ function PrototypeApp() {
       { id: 'new-template', label: 'New Template', icon: 'star' as const, onClick: () => handleTabClick('templates') },
       { id: 'upload', label: 'Upload Document', icon: 'upload' as const, onClick: () => setHomeCreation({ kind: 'envelope', files: [] }) },
     ],
-    activeItemId: sidebarView === 'people' && peopleScope !== PEOPLE_ALL_SCOPE ? peopleScope : sidebarView,
+    activeItemId: sidebarView,
     sections: [
       {
         id: 'agreements',
@@ -4770,19 +4768,6 @@ function PrototypeApp() {
       { id: 'folders-divider', hasDivider: true, items: [
         { id: 'folders-item', label: 'Folders', icon: 'folder' as const, hasMenu: true },
       ]},
-      {
-        id: 'people-files',
-        hasDivider: true,
-        items: [
-          { id: 'people', label: 'People', icon: 'people' as const, onClick: () => { setPeopleScope(PEOPLE_ALL_SCOPE); setSidebarView('people'); } },
-          ...(sidebarView === 'people' ? PEOPLE_REGIONS.flatMap(region => [
-            { id: region, label: region, icon: 'folder' as const, nested: true, onClick: () => setPeopleScope(region) },
-            ...LEGAL_ENTITIES.filter(entity => entity.region === region).map(entity => ({
-              id: entity.id, label: entity.name, nested: true, onClick: () => setPeopleScope(entity.id),
-            })),
-          ]) : []),
-        ],
-      },
       {
         id: 'features',
         hasDivider: true,
@@ -4919,7 +4904,7 @@ function PrototypeApp() {
   const VIEW_LABELS: Record<SidebarView, string> = {
     'all-agreements': 'All Agreements', drafts: 'Drafts', 'in-progress': 'In Progress',
     completed: 'Completed', deleted: 'Deleted', parties: 'Parties', requests: 'Requests',
-    workspaces: 'Workspaces', powerforms: 'PowerForms', people: 'People',
+    workspaces: 'Workspaces', powerforms: 'PowerForms',
   };
 
   const isPartiesView = sidebarView === 'parties';
@@ -5177,9 +5162,7 @@ function PrototypeApp() {
       onAskIris={openIris}
       onBegin={(kind, files = []) => setHomeCreation({ kind, files })}
     />,
-    agreements: sidebarView === 'people'
-      ? <PeoplePage scope={peopleScope} onScopeChange={setPeopleScope} search={peopleSearch} onSearchChange={setPeopleSearch} />
-      : agreementsContent,
+    agreements: agreementsContent,
     templates: templatesContent,
     automations: <AutomationsPage workflows={workflows} onChange={setWorkflows} view={automationView} onNavigate={setAutomationView} />,
     insights: insightsContent,
