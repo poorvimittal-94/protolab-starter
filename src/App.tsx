@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, useId, useSyncExternalStore, type CSSProperties } from 'react';
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef, useId, type CSSProperties } from 'react';
 import powerFormsEmptyArt from '@/assets/powerforms-empty.svg';
 import {
   DocuSignShell,
@@ -249,11 +249,11 @@ function FadeIn({ children, keyProp: _keyProp }: { children: React.ReactNode; ke
    ═══════════════════════════════════════ */
 
 type TabId = 'home' | 'agreements' | 'templates' | 'automations' | 'insights' | 'admin' | 'scenarios' | 'tokens';
-type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | 'deleted' | 'parties' | 'parties-organizations' | 'parties-people' | 'requests' | 'workspaces' | 'powerforms' | 'people';
+type SidebarView = 'all-agreements' | 'drafts' | 'in-progress' | 'completed' | 'deleted' | 'parties' | 'requests' | 'workspaces' | 'powerforms';
 type TemplatesSidebarView = 'my-templates' | 'shared-with-me' | 'favorites' | 'all-templates' | 'clauses' | 'document-templates' | 'workspace-templates' | 'workflow-templates' | 'my-web-forms' | 'shared-web-forms' | 'all-web-forms' | 'template-gallery' | 'elastic-templates';
 type InsightsSidebarView = 'overview' | 'dashboards' | 'reports' | 'my-dashboard' | 'admin-dashboard' | 'agreements-dashboard' | 'obligations-dashboard' | 'renewals-dashboard' | 'requests-dashboard' | 'ai-usage-dashboard' | 'procurement-hub' | 'custom-obligations' | 'custom-dashboard';
 
-/* ════════════════════════��══════════════
+/* ═══════════════════════════════════════
    Agreements Data
    ═══════════════════════════════════════ */
 
@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════���������════════════════════════════════
+/* ═══════════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -491,580 +491,58 @@ const navigatorColumns: DataTableColumn<NavigatorAgreement>[] = [
   },
 ];
 
-/* ═══════════════════════════════════════════════════════════
-   Parties — Organizations and People
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════
+   Parties Data (matches real DocuSign)
+   ═══════════════════════════════════════ */
 
-type PartiesView = 'organizations' | 'people';
-type PartySide = 'Internal' | 'External';
-
-interface Organization {
+interface Party {
   id: string;
   name: string;
   role: string;
-  side: PartySide;
-  location: string;
   activeAgreements: number;
-  totalAgreements: number;
+  existingAgreements: number;
+  starred?: boolean;
 }
 
-interface Person {
-  id: string;
-  name: string;
-  email: string;
-  organization: string;
-  title: string;
-  side: PartySide;
-  activeAgreements: number;
-}
-
-const ORGANIZATIONS_DATA: Organization[] = [
-  { id: 'org1', name: 'Acme Corporation', role: 'Customer', side: 'External', location: 'San Francisco, US', activeAgreements: 12, totalAgreements: 48 },
-  { id: 'org2', name: 'Northwind Traders', role: 'Vendor', side: 'External', location: 'Seattle, US', activeAgreements: 7, totalAgreements: 31 },
-  { id: 'org3', name: 'Northwind Trading Co.', role: 'Vendor', side: 'External', location: 'Seattle, US', activeAgreements: 2, totalAgreements: 6 },
-  { id: 'org4', name: 'Protolab', role: 'Company', side: 'Internal', location: 'San Francisco, US', activeAgreements: 41, totalAgreements: 212 },
-  { id: 'org5', name: 'Contoso Ltd.', role: 'Partner', side: 'External', location: 'London, UK', activeAgreements: 5, totalAgreements: 19 },
-  { id: 'org6', name: 'Fabrikam Industries', role: 'Customer', side: 'External', location: 'Chicago, US', activeAgreements: 9, totalAgreements: 27 },
-  { id: 'org7', name: 'Globex Logistics', role: 'Vendor', side: 'External', location: 'Rotterdam, NL', activeAgreements: 3, totalAgreements: 14 },
-  { id: 'org8', name: 'Initech Systems', role: 'Partner', side: 'External', location: 'Austin, US', activeAgreements: 4, totalAgreements: 11 },
-  { id: 'org9', name: 'Protolab EMEA GmbH', role: 'Subsidiary', side: 'Internal', location: 'Munich, DE', activeAgreements: 14, totalAgreements: 58 },
-  { id: 'org10', name: 'Umbrella Health', role: 'Customer', side: 'External', location: 'Boston, US', activeAgreements: 6, totalAgreements: 22 },
-  { id: 'org11', name: 'Stark Capital Partners', role: 'Investor', side: 'External', location: 'New York, US', activeAgreements: 1, totalAgreements: 4 },
-  { id: 'org12', name: 'Wayne Facilities Group', role: 'Vendor', side: 'External', location: 'Toronto, CA', activeAgreements: 8, totalAgreements: 35 },
-  { id: 'org13', name: 'Hooli Cloud', role: 'Vendor', side: 'External', location: 'Palo Alto, US', activeAgreements: 11, totalAgreements: 40 },
-  { id: 'org14', name: 'Soylent Foods', role: 'Customer', side: 'External', location: 'Denver, US', activeAgreements: 0, totalAgreements: 3 },
+const PARTIES_DATA: Party[] = [
+  { id: '1', name: 'DocuSign, Inc.', role: 'Other', activeAgreements: 1009, existingAgreements: 16, starred: false },
+  { id: '2', name: 'Docusign', role: 'Other', activeAgreements: 192, existingAgreements: 6, starred: false },
+  { id: '3', name: 'DocuSign Inc.', role: 'Other', activeAgreements: 95, existingAgreements: 3, starred: false },
+  { id: '4', name: 'Bio-Logistics Solutions LLC', role: 'Seller', activeAgreements: 19, existingAgreements: 2, starred: false },
+  { id: '5', name: 'Docusign Inc', role: 'Other', activeAgreements: 55, existingAgreements: 2, starred: false },
+  { id: '6', name: 'Grant Thornton Advisors LLC', role: 'Other', activeAgreements: 2, existingAgreements: 3, starred: false },
+  { id: '7', name: 'FinLogic LLC', role: 'Other', activeAgreements: 2, existingAgreements: 3, starred: false },
+  { id: '8', name: 'Docusign, Inc', role: 'Other', activeAgreements: 90, existingAgreements: 3, starred: false },
+  { id: '9', name: 'Umbrella Corporation', role: 'Buyer', activeAgreements: 19, existingAgreements: 3, starred: false },
+  { id: '10', name: 'DocuSign France', role: 'Other', activeAgreements: 3, existingAgreements: 3, starred: false },
 ];
 
-const PEOPLE_DATA: Person[] = [
-  { id: 'p1', name: 'Priya Raman', email: 'priya.raman@acme.example', organization: 'Acme Corporation', title: 'VP, Procurement', side: 'External', activeAgreements: 6 },
-  { id: 'p2', name: 'Priya Ramaswamy', email: 'p.ramaswamy@acme.example', organization: 'Acme Corporation', title: 'Procurement Lead', side: 'External', activeAgreements: 2 },
-  { id: 'p3', name: 'Daniel Okafor', email: 'daniel.okafor@northwind.example', organization: 'Northwind Traders', title: 'Account Director', side: 'External', activeAgreements: 4 },
-  { id: 'p4', name: 'Akshat Mishra', email: 'akshat.mishra@protolab.example', organization: 'Protolab', title: 'Product Designer', side: 'Internal', activeAgreements: 18 },
-  { id: 'p5', name: 'Marta Lindqvist', email: 'marta.lindqvist@protolab.example', organization: 'Protolab EMEA GmbH', title: 'Legal Counsel', side: 'Internal', activeAgreements: 11 },
-  { id: 'p6', name: 'Chen Wei', email: 'chen.wei@contoso.example', organization: 'Contoso Ltd.', title: 'Partnerships Manager', side: 'External', activeAgreements: 3 },
-  { id: 'p7', name: 'Hannah Becker', email: 'hannah.becker@fabrikam.example', organization: 'Fabrikam Industries', title: 'Chief Operating Officer', side: 'External', activeAgreements: 5 },
-  { id: 'p8', name: 'Samuel Adeyemi', email: 'samuel.adeyemi@globex.example', organization: 'Globex Logistics', title: 'Contracts Administrator', side: 'External', activeAgreements: 2 },
-  { id: 'p9', name: 'Lucia Fernandez', email: 'lucia.fernandez@initech.example', organization: 'Initech Systems', title: 'Head of Alliances', side: 'External', activeAgreements: 3 },
-  { id: 'p10', name: 'Tomas Novak', email: 'tomas.novak@protolab.example', organization: 'Protolab EMEA GmbH', title: 'Sales Operations', side: 'Internal', activeAgreements: 9 },
-  { id: 'p11', name: 'Grace Whitfield', email: 'grace.whitfield@umbrella.example', organization: 'Umbrella Health', title: 'Compliance Officer', side: 'External', activeAgreements: 4 },
-  { id: 'p12', name: 'Omar Haddad', email: 'omar.haddad@hooli.example', organization: 'Hooli Cloud', title: 'Enterprise Account Manager', side: 'External', activeAgreements: 7 },
-  { id: 'p13', name: 'Ines Duarte', email: 'ines.duarte@wayne.example', organization: 'Wayne Facilities Group', title: 'Facilities Director', side: 'External', activeAgreements: 5 },
-  { id: 'p14', name: 'Rhea Kapoor', email: 'rhea.kapoor@stark.example', organization: 'Stark Capital Partners', title: 'Investment Associate', side: 'External', activeAgreements: 1 },
-  { id: 'p15', name: 'Jonas Albrecht', email: 'jonas.albrecht@protolab.example', organization: 'Protolab', title: 'Finance Manager', side: 'Internal', activeAgreements: 13 },
-  { id: 'p16', name: 'Keiko Tanaka', email: 'keiko.tanaka@soylent.example', organization: 'Soylent Foods', title: 'Purchasing Manager', side: 'External', activeAgreements: 0 },
-];
-
-const initialsOf = (name: string) => name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase();
-
-const organizationColumns: DataTableColumn<Organization>[] = [
-  { key: 'name', header: 'Organization', sortable: true, width: '28%', cell: (row) => <Text size="sm" weight="semibold">{row.name}</Text> },
-  { key: 'role', header: 'Role', sortable: true, cell: (row) => <Text size="sm">{row.role}</Text> },
-  { key: 'side', header: 'Party side', sortable: true, cell: (row) => <Badge kind={row.side === 'Internal' ? 'emphasis' : 'subtle'}>{row.side}</Badge> },
-  { key: 'location', header: 'Location', sortable: true, cell: (row) => <Text size="sm" color="secondary">{row.location}</Text> },
-  { key: 'activeAgreements', header: 'Active agreements', sortable: true, cell: (row) => <Text size="sm">{row.activeAgreements}</Text> },
-  { key: 'totalAgreements', header: 'Total agreements', sortable: true, cell: (row) => <Text size="sm">{row.totalAgreements}</Text> },
-];
-
-const personColumns: DataTableColumn<Person>[] = [
+const partyColumns: DataTableColumn<Party>[] = [
+  { key: 'name', header: 'Name', sortable: true, width: '280px' },
+  { key: 'role', header: 'Role', sortable: true, width: '120px' },
   {
-    key: 'name', header: 'Name', sortable: true, width: '28%',
-    cell: (row) => (
-      <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-        <Avatar size="small" initials={initialsOf(row.name)} />
-        <Stack gap="none">
-          <Text size="sm" weight="semibold">{row.name}</Text>
-          <Text size="xs" color="secondary">{row.email}</Text>
-        </Stack>
+    key: 'activeAgreements',
+    header: 'Active agreements',
+    sortable: true,
+    width: '160px',
+    cell: (row: Party) => (
+      <Inline gap="small" align="center">
+        <Badge kind="success">Active</Badge>
+        <Text size="sm">{row.activeAgreements.toLocaleString()}</Text>
       </Inline>
     ),
   },
-  { key: 'organization', header: 'Organization', sortable: true, cell: (row) => <Text size="sm">{row.organization}</Text> },
-  { key: 'title', header: 'Job title', sortable: true, cell: (row) => <Text size="sm" color="secondary">{row.title}</Text> },
-  { key: 'side', header: 'Party side', sortable: true, cell: (row) => <Badge kind={row.side === 'Internal' ? 'emphasis' : 'subtle'}>{row.side}</Badge> },
-  { key: 'activeAgreements', header: 'Active agreements', sortable: true, cell: (row) => <Text size="sm">{row.activeAgreements}</Text> },
-];
-
-const PARTY_FILTER_ALL = 'All';
-
-/* ── Parties store: module-level so merges survive navigating between views ── */
-interface PartiesState { organizations: Organization[]; people: Person[] }
-let partiesState: PartiesState = { organizations: ORGANIZATIONS_DATA, people: PEOPLE_DATA };
-const partiesListeners = new Set<() => void>();
-const subscribeParties = (listener: () => void) => { partiesListeners.add(listener); return () => { partiesListeners.delete(listener); }; };
-const getPartiesState = () => partiesState;
-
-type MergeRecord = Organization | Person;
-type MergeValues = Record<string, string | number>;
-interface MergeField { key: string; label: string; sum?: boolean }
-
-const ORGANIZATION_MERGE_FIELDS: MergeField[] = [
-  { key: 'name', label: 'Organization name' },
-  { key: 'role', label: 'Role' },
-  { key: 'side', label: 'Party side' },
-  { key: 'location', label: 'Location' },
-  { key: 'activeAgreements', label: 'Active agreements', sum: true },
-  { key: 'totalAgreements', label: 'Total agreements', sum: true },
-];
-const PERSON_MERGE_FIELDS: MergeField[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'email', label: 'Email' },
-  { key: 'organization', label: 'Organization' },
-  { key: 'title', label: 'Job title' },
-  { key: 'side', label: 'Party side' },
-  { key: 'activeAgreements', label: 'Active agreements', sum: true },
-];
-
-const readField = (record: MergeRecord, key: string): string | number => (record as unknown as MergeValues)[key] ?? '';
-const isBlank = (value: string | number) => String(value).trim() === '';
-const sameValue = (a: string | number, b: string | number) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
-
-function applyMerge(view: PartiesView, survivorId: string, removedIds: string[], merged: MergeValues, previousNames: string[]) {
-  if (view === 'organizations') {
-    const finalName = String(merged.name);
-    partiesState = {
-      organizations: partiesState.organizations
-        .filter((org) => !removedIds.includes(org.id))
-        .map((org) => (org.id === survivorId ? ({ ...org, ...merged } as unknown as Organization) : org)),
-      people: partiesState.people.map((person) => (previousNames.includes(person.organization) ? { ...person, organization: finalName } : person)),
-    };
-  } else {
-    partiesState = {
-      ...partiesState,
-      people: partiesState.people
-        .filter((person) => !removedIds.includes(person.id))
-        .map((person) => (person.id === survivorId ? ({ ...person, ...merged } as unknown as Person) : person)),
-    };
-  }
-  partiesListeners.forEach((listener) => listener());
-}
-
-function defaultMergeChoices(records: MergeRecord[], fields: MergeField[]) {
-  const choices: Record<string, string> = {};
-  fields.filter((field) => !field.sum).forEach((field) => {
-    choices[field.key] = (records.find((record) => !isBlank(readField(record, field.key))) ?? records[0]).id;
-  });
-  return choices;
-}
-
-function MergePartiesFlow({ view, records, onClose, onConfirm }: {
-  view: PartiesView;
-  records: MergeRecord[];
-  onClose: () => void;
-  onConfirm: (merged: MergeValues) => Promise<void>;
-}) {
-  const fields = view === 'organizations' ? ORGANIZATION_MERGE_FIELDS : PERSON_MERGE_FIELDS;
-  const singular = view === 'organizations' ? 'organization' : 'person';
-  const plural = view === 'organizations' ? 'organizations' : 'people';
-  const groupId = useId();
-  const [stage, setStage] = useState<'compare' | 'confirm'>('compare');
-  const [choices, setChoices] = useState(() => defaultMergeChoices(records, fields));
-  const [highlight, setHighlight] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const merged = useMemo<MergeValues>(() => {
-    const result: MergeValues = {};
-    fields.forEach((field) => {
-      if (field.sum) {
-        result[field.key] = records.reduce((total, record) => total + Number(readField(record, field.key) || 0), 0);
-      } else {
-        const source = records.find((record) => record.id === choices[field.key]) ?? records[0];
-        result[field.key] = readField(source, field.key);
-      }
-    });
-    return result;
-  }, [fields, records, choices]);
-
-  const differs = (field: MergeField) => !field.sum && records.some((record) => !sameValue(readField(record, field.key), readField(records[0], field.key)));
-  const sourceName = (field: MergeField) => records.find((record) => record.id === choices[field.key])?.name ?? records[0].name;
-  const differingCount = fields.filter(differs).length;
-  const sideConflict = fields.some((field) => field.key === 'side' && differs(field));
-  const displayValue = (value: string | number) => (isBlank(value) ? 'No value' : String(value));
-
-  const confirm = async () => {
-    setSubmitting(true);
-    setError('');
-    try {
-      await onConfirm(merged);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong while merging.');
-      setSubmitting(false);
-    }
-  };
-
-  if (stage === 'confirm') {
-    return (
-      <Modal
-        open
-        size="medium"
-        title="Confirm merge"
-        onClose={submitting ? undefined : onClose}
-        closeOnEscape={!submitting}
-        closeOnBackdropClick={false}
-        footer={
-          <Inline justify="end" gap="small">
-            <Button kind="tertiary" onClick={onClose} disabled={submitting}>Cancel</Button>
-            <Button kind="secondary" onClick={() => { setError(''); setStage('compare'); }} disabled={submitting}>Back</Button>
-            <Button kind="danger" loading={submitting} onClick={confirm}>{error ? 'Try again' : 'Confirm merge'}</Button>
-          </Inline>
-        }
-      >
-        <Stack gap="medium">
-          <Banner kind="warning" closable={false} lineWrap>
-            {`This can't be undone. The ${records.length} ${plural} below will be replaced by one ${singular}, and their agreements will be combined.`}
-          </Banner>
-          {error && <Banner kind="danger" closable={false} lineWrap>{error}</Banner>}
-          <Stack gap="small">
-            <Heading level={3}>{`${records.length} ${plural} being merged`}</Heading>
-            <ul className="merge-summary-list" aria-label={`${plural} being merged`}>
-              {records.map((record, index) => (
-                <li key={record.id}>
-                  <Inline gap="small" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
-                    <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-                      {view === 'people' && <Avatar size="small" initials={initialsOf(record.name)} />}
-                      <Text size="sm" weight="semibold">{record.name}</Text>
-                    </Inline>
-                    <Badge kind={index === 0 ? 'emphasis' : 'subtle'}>{index === 0 ? 'Primary record' : 'Will be removed'}</Badge>
-                  </Inline>
-                </li>
-              ))}
-            </ul>
-          </Stack>
-          <Stack gap="small">
-            <Heading level={3}>Resulting record</Heading>
-            <MergePreviewCard view={view} fields={fields} merged={merged} count={records.length} sourceName={sourceName} differs={differs} showSources={false} />
-          </Stack>
-        </Stack>
-      </Modal>
-    );
-  }
-
-  return (
-    <Modal
-      open
-      size="xlarge"
-      title={`Merge ${records.length} ${plural}`}
-      onClose={onClose}
-      footer={
-        <Inline justify="end" gap="small">
-          <Button kind="secondary" onClick={onClose}>Cancel</Button>
-          <Button kind="primary" onClick={() => setStage('confirm')}>Review merge</Button>
-        </Inline>
-      }
-    >
-      <Stack gap="medium">
-        <Inline justify="between" align="center" gap="medium" style={{ flexWrap: 'wrap' }}>
-          <Text size="sm" color="secondary">
-            {differingCount > 0
-              ? `${differingCount} ${differingCount === 1 ? 'field differs' : 'fields differ'}. Choose the value to keep for each. Agreement counts are combined.`
-              : 'These records match on every field. Agreement counts are combined.'}
-          </Text>
-          <Switch label="Highlight differences" checked={highlight} onChange={setHighlight} />
-        </Inline>
-        {sideConflict && <Banner kind="warning" closable={false} lineWrap>These records have different party sides. Check which side is correct before you merge.</Banner>}
-        <div className="merge-layout">
-          <div className="merge-scroll">
-            <div className="merge-grid" style={{ '--merge-cols': records.length } as CSSProperties}>
-              <div className="merge-row merge-head" aria-hidden="true">
-                <Text size="xs" color="secondary" weight="semibold">Field</Text>
-                {records.map((record, index) => (
-                  <Stack gap="none" key={record.id}>
-                    <Text size="sm" weight="semibold">{record.name}</Text>
-                    <Text size="xs" color="secondary">{index === 0 ? 'Primary record' : `Record ${index + 1}`}</Text>
-                  </Stack>
-                ))}
-              </div>
-              {fields.map((field) => {
-                const isDifferent = differs(field);
-                const marked = highlight && isDifferent;
-                const rowClass = `merge-row${marked ? ' merge-row--differs' : ''}`;
-                const label = (
-                  <div className="merge-label">
-                    <Text size="sm" weight="semibold">{field.label}</Text>
-                    {field.sum && <Text size="xs" color="secondary">Combined</Text>}
-                    {marked && <Badge kind="warning">Differs</Badge>}
-                  </div>
-                );
-                if (field.sum) {
-                  return (
-                    <div key={field.key} className={rowClass}>
-                      {label}
-                      {records.map((record) => <div key={record.id} className="merge-cell"><Text size="sm">{String(readField(record, field.key))}</Text></div>)}
-                    </div>
-                  );
-                }
-                if (!isDifferent) {
-                  return (
-                    <div key={field.key} className={rowClass}>
-                      {label}
-                      <div className="merge-cell merge-cell--span">
-                        <Text size="sm">{displayValue(readField(records[0], field.key))}</Text>
-                        <Text size="xs" color="secondary">Same in all records</Text>
-                      </div>
-                    </div>
-                  );
-                }
-                return (
-                  <div key={field.key} className={rowClass} role="radiogroup" aria-label={field.label}>
-                    {label}
-                    {records.map((record) => {
-                      const value = readField(record, field.key);
-                      const checked = choices[field.key] === record.id;
-                      return (
-                        <div key={record.id} className={`merge-cell${checked ? ' merge-cell--selected' : ''}`}>
-                          <Radio
-                            name={`${groupId}-${field.key}`}
-                            value={record.id}
-                            checked={checked}
-                            onChange={() => setChoices((current) => ({ ...current, [field.key]: record.id }))}
-                            label={displayValue(value)}
-                            aria-label={`${displayValue(value)}, from ${record.name}`}
-                          />
-                          <span className="merge-source">{`From ${record.name}`}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          <div className="merge-preview">
-            <Heading level={3}>Merged record preview</Heading>
-            <MergePreviewCard view={view} fields={fields} merged={merged} count={records.length} sourceName={sourceName} differs={differs} showSources />
-          </div>
-        </div>
-      </Stack>
-    </Modal>
-  );
-}
-
-function MergePreviewCard({ view, fields, merged, count, sourceName, differs, showSources }: {
-  view: PartiesView;
-  fields: MergeField[];
-  merged: MergeValues;
-  count: number;
-  sourceName: (field: MergeField) => string;
-  differs: (field: MergeField) => boolean;
-  showSources: boolean;
-}) {
-  const singular = view === 'organizations' ? 'Organization' : 'Person';
-  return (
-    <div className="merge-preview-card">
-      <Inline gap="small" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
-        <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-          {view === 'people' && <Avatar size="medium" initials={initialsOf(String(merged.name))} />}
-          <Stack gap="none">
-            <Text weight="semibold">{String(merged.name) || 'Untitled'}</Text>
-            <Text size="xs" color="secondary">{`Replaces ${count} records`}</Text>
-          </Stack>
-        </Inline>
-        <Badge kind="emphasis">{`Merged ${singular.toLowerCase()}`}</Badge>
-      </Inline>
-      <dl className="merge-preview-list" aria-live="polite">
-        {fields.filter((field) => field.key !== 'name').map((field) => {
-          const value = merged[field.key];
-          return (
-            <div key={field.key}>
-              <dt><Text size="xs" color="secondary">{field.label}</Text></dt>
-              <dd>
-                <Text size="sm" weight="semibold">{isBlank(value) ? 'No value' : String(value)}</Text>
-                {showSources && (field.sum ? <Text size="xs" color="secondary">{`Combined from ${count} records`}</Text> : differs(field) && <Text size="xs" color="secondary">{`From ${sourceName(field)}`}</Text>)}
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
-    </div>
-  );
-}
-
-function PartyFilterMenu({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
-  return (
-    <Dropdown
-      position="bottom"
-      align="start"
-      items={[PARTY_FILTER_ALL, ...options].map((option) => ({ label: option, selected: option === value, onClick: () => onChange(option) }))}
-    >
-      <Button kind="secondary" size="small" menuTrigger>{value === PARTY_FILTER_ALL ? label : `${label}: ${value}`}</Button>
-    </Dropdown>
-  );
-}
-
-function PartiesPage(props: { view: PartiesView; onAskIris: () => void }) {
-  return <ToastProvider><PartiesPageContent {...props} /></ToastProvider>;
-}
-
-function PartiesPageContent({ view, onAskIris }: { view: PartiesView; onAskIris: () => void }) {
-  const { toast } = useToast();
-  const { organizations: allOrganizations, people: allPeople } = useSyncExternalStore(subscribeParties, getPartiesState);
-  const simulateFailure = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('merge') === 'fail';
-  const mergeAttempts = useRef(0);
-  const [mergeRecords, setMergeRecords] = useState<MergeRecord[] | null>(null);
-  const isOrganizations = view === 'organizations';
-  const forceEmpty = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('parties') === 'empty';
-
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterA, setFilterA] = useState(PARTY_FILTER_ALL);
-  const [filterB, setFilterB] = useState(PARTY_FILTER_ALL);
-  const [selected, setSelected] = useState<Set<string | number>>(new Set());
-  const [sort, setSort] = useState<{ column?: string; direction: 'ascending' | 'descending' | null }>({ direction: null });
-  useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 500);
-    return () => window.clearTimeout(timer);
-  }, []);
-
-  const organizationNames = useMemo(() => [...new Set(allPeople.map((person) => person.organization))].sort(), [allPeople]);
-  const roleNames = useMemo(() => [...new Set(allOrganizations.map((org) => org.role))].sort(), [allOrganizations]);
-
-  const organizations = useMemo(() => {
-    if (forceEmpty) return [];
-    const q = search.trim().toLowerCase();
-    return allOrganizations.filter((org) =>
-      (filterA === PARTY_FILTER_ALL || org.role === filterA) &&
-      (filterB === PARTY_FILTER_ALL || org.side === filterB) &&
-      (!q || org.name.toLowerCase().includes(q) || org.location.toLowerCase().includes(q) || org.role.toLowerCase().includes(q)));
-  }, [forceEmpty, allOrganizations, search, filterA, filterB]);
-
-  const people = useMemo(() => {
-    if (forceEmpty) return [];
-    const q = search.trim().toLowerCase();
-    return allPeople.filter((person) =>
-      (filterA === PARTY_FILTER_ALL || person.organization === filterA) &&
-      (filterB === PARTY_FILTER_ALL || person.side === filterB) &&
-      (!q || person.name.toLowerCase().includes(q) || person.email.toLowerCase().includes(q) || person.organization.toLowerCase().includes(q) || person.title.toLowerCase().includes(q)));
-  }, [forceEmpty, allPeople, search, filterA, filterB]);
-
-  const visibleIds = useMemo(() => new Set<string | number>((isOrganizations ? organizations : people).map((row) => row.id)), [isOrganizations, organizations, people]);
-
-  // Selection only ever refers to rows that are on screen, so the count and select-all stay truthful.
-  useEffect(() => {
-    setSelected((current) => {
-      const next = new Set([...current].filter((id) => visibleIds.has(id)));
-      return next.size === current.size ? current : next;
-    });
-  }, [visibleIds]);
-
-  const filterOptions = isOrganizations ? roleNames : organizationNames;
-  useEffect(() => {
-    if (filterA !== PARTY_FILTER_ALL && !filterOptions.includes(filterA)) setFilterA(PARTY_FILTER_ALL);
-  }, [filterA, filterOptions]);
-
-  const openMerge = () => {
-    const rows: MergeRecord[] = isOrganizations ? allOrganizations : allPeople;
-    setMergeRecords(rows.filter((row) => selected.has(row.id)));
-  };
-
-  const handleMerge = async (merged: MergeValues) => {
-    if (!mergeRecords) return;
-    await new Promise((resolve) => window.setTimeout(resolve, 900));
-    mergeAttempts.current += 1;
-    if (simulateFailure && mergeAttempts.current === 1) throw new Error("We couldn't complete the merge. Nothing was changed. Try again.");
-    const [survivor, ...removed] = mergeRecords;
-    applyMerge(view, survivor.id, removed.map((record) => record.id), merged, mergeRecords.map((record) => record.name));
-    const count = mergeRecords.length;
-    setMergeRecords(null);
-    setSelected(new Set());
-    toast({ kind: 'success', children: `Merged ${count} ${isOrganizations ? 'organizations' : 'people'} into ${String(merged.name)}.` });
-  };
-
-  const filtersActive = Boolean(search) || filterA !== PARTY_FILTER_ALL || filterB !== PARTY_FILTER_ALL;
-  const clearAll = () => { setSearch(''); setFilterA(PARTY_FILTER_ALL); setFilterB(PARTY_FILTER_ALL); };
-  const noun = isOrganizations ? 'organizations' : 'people';
-  const rowCount = isOrganizations ? organizations.length : people.length;
-
-  const actionBarContent = (
-    <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-      <Button kind="tertiary" size="small" onClick={() => setSelected(new Set())}>Clear</Button>
-      <Button
-        kind="secondary"
-        size="small"
-        disabled={selected.size < 2}
-        onClick={openMerge}
-      >
-        Merge
-      </Button>
-      {selected.size < 2 && <Text size="xs" color="secondary">Select at least 2 to merge</Text>}
-    </Inline>
-  );
-
-  const tableProps = {
-    stickyHeader: true,
-    selectable: true,
-    selectedRows: selected,
-    onSelectionChange: setSelected,
-    actionBarContent,
-    loading,
-    sortColumn: sort.column,
-    sortDirection: sort.direction,
-    onSortChange: (column: string, direction: 'ascending' | 'descending' | null) => setSort({ column, direction }),
-    emptyMessage: (
-      <Stack gap="small" align="center">
-        <Text>{`No ${noun} match your search or filters`}</Text>
-        <Button kind="secondary" size="small" onClick={clearAll}>Clear search and filters</Button>
-      </Stack>
+  { key: 'existingAgreements', header: 'Existing agreements', sortable: true, width: '160px' },
+  {
+    key: 'starred',
+    header: '',
+    width: '48px',
+    alignment: 'center' as const,
+    cell: (row: Party) => (
+      <IconButton icon={row.starred ? 'star' : 'star'} variant="tertiary" size="small" aria-label="Favorite" />
     ),
-    pagination: { page: 1, pageSize: 25 as const, totalItems: rowCount, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true },
-  };
-
-  return (
-    <AgreementTableView
-      paddingVariant="default"
-      pageHeader={
-        <Stack gap="small" style={{ width: '100%' }}>
-          <PageHeader
-            title={isOrganizations ? 'Organizations' : 'People'}
-            showAIBadge
-            aiBadgeText="AI-Assisted"
-            actions={
-              <>
-                <IconButton icon="chart-bar" variant="tertiary" size="small" aria-label="Analytics" />
-                <Button kind="primary" size="small" onClick={onAskIris} startElement={<IrisIconInverse size={20} />} className="iris-ask-button">Ask Iris</Button>
-              </>
-            }
-          />
-          <Text size="sm" color="secondary">
-            {isOrganizations
-              ? 'Companies you have agreements with, including your own entities.'
-              : 'Individuals who sign, approve or are named across your agreements.'}
-          </Text>
-        </Stack>
-      }
-      filterBar={
-        <FilterBar
-          search={{ value: search, onChange: setSearch, placeholder: isOrganizations ? 'Search organizations...' : 'Search people...' }}
-          filters={
-            <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-              {isOrganizations
-                ? <PartyFilterMenu label="Role" value={filterA} options={roleNames} onChange={setFilterA} />
-                : <PartyFilterMenu label="Organization" value={filterA} options={organizationNames} onChange={setFilterA} />}
-              <PartyFilterMenu label="Party side" value={filterB} options={['Internal', 'External']} onChange={setFilterB} />
-              {filtersActive && <Button kind="tertiary" size="small" onClick={clearAll}>Clear all</Button>}
-            </Inline>
-          }
-        />
-      }
-    >
-      {forceEmpty && !loading ? (
-        <EmptyState
-          direction="column"
-          alignment="center"
-          image={<Icon name="building-person" />}
-          header={<EmptyState.Header text={`No ${noun} yet`} />}
-        >
-          {isOrganizations ? 'Organizations appear here once they are part of an agreement.' : 'People appear here once they are added as a recipient on an agreement.'}
-        </EmptyState>
-      ) : isOrganizations ? (
-        <DataTable {...tableProps} columns={organizationColumns} data={organizations} getRowKey={(row) => row.id} />
-      ) : (
-        <DataTable {...tableProps} columns={personColumns} data={people} getRowKey={(row) => row.id} />
-      )}
-      {mergeRecords && <MergePartiesFlow view={view} records={mergeRecords} onClose={() => setMergeRecords(null)} onConfirm={handleMerge} />}
-    </AgreementTableView>
-  );
-}
-
+  },
+];
 
 /* ═══════════════════════════════════════
    Requests Data (matches real DocuSign)
@@ -1214,9 +692,9 @@ const workspaceColumns: DataTableColumn<Workspace>[] = [
   },
 ];
 
-/* ═════════��═════════════════════════════
+/* ═══════════════════════════════════════
    Templates Data (matches real DocuSign)
-   ═════════════════��══════════════��══════ */
+   ═══════════════════════════════════════ */
 
 interface TemplateItem {
   id: string;
@@ -4347,637 +3825,6 @@ function CompletedInsightsPanel() {
   );
 }
 
-/* ═══════════════════════════════════════
-   People — Employee Files
-   ═══════════════════════════════════════ */
-
-type PeopleRegion = 'Americas' | 'EMEA' | 'APAC';
-type EmployeeStatus = 'Active' | 'On leave' | 'Pre-hire' | 'Terminated';
-
-interface LegalEntity { id: string; name: string; region: PeopleRegion; country: string }
-interface EmployeeFile {
-  id: string;
-  name: string;
-  workerId: string;
-  email: string;
-  entityId: string;
-  status: EmployeeStatus;
-  files: number;
-  updated: string;
-}
-
-const PEOPLE_REGIONS: PeopleRegion[] = ['Americas', 'EMEA', 'APAC'];
-
-const LEGAL_ENTITIES: LegalEntity[] = [
-  { id: 'ent-us', name: 'Docusign, Inc.', region: 'Americas', country: 'United States' },
-  { id: 'ent-ca', name: 'Docusign Canada ULC', region: 'Americas', country: 'Canada' },
-  { id: 'ent-uk', name: 'Docusign UK Ltd', region: 'EMEA', country: 'United Kingdom' },
-  { id: 'ent-de', name: 'Docusign Germany GmbH', region: 'EMEA', country: 'Germany' },
-  { id: 'ent-fr', name: 'Docusign France SAS', region: 'EMEA', country: 'France' },
-  { id: 'ent-jp', name: 'Docusign Japan K.K.', region: 'APAC', country: 'Japan' },
-  { id: 'ent-au', name: 'Docusign Australia Pty Ltd', region: 'APAC', country: 'Australia' },
-];
-
-const EMPLOYEE_FILES_DATA: EmployeeFile[] = [
-  { id: 'emp-1', name: 'Amara Okafor', workerId: 'W-100482', email: 'amara.okafor@protolab.com', entityId: 'ent-us', status: 'Active', files: 14, updated: 'Oct 22, 2026' },
-  { id: 'emp-2', name: 'Daniel Brooks', workerId: 'W-100517', email: 'daniel.brooks@protolab.com', entityId: 'ent-us', status: 'On leave', files: 9, updated: 'Oct 19, 2026' },
-  { id: 'emp-3', name: 'Priya Raman', workerId: 'W-100634', email: 'priya.raman@protolab.com', entityId: 'ent-ca', status: 'Active', files: 11, updated: 'Oct 21, 2026' },
-  { id: 'emp-4', name: 'Hannah Whitfield', workerId: 'W-201207', email: 'hannah.whitfield@protolab.co.uk', entityId: 'ent-uk', status: 'Active', files: 16, updated: 'Oct 20, 2026' },
-  { id: 'emp-5', name: 'Oliver Grant', workerId: 'W-201244', email: 'oliver.grant@protolab.co.uk', entityId: 'ent-uk', status: 'Pre-hire', files: 3, updated: 'Oct 18, 2026' },
-  { id: 'emp-6', name: 'Lena Fischer', workerId: 'W-201390', email: 'lena.fischer@protolab.de', entityId: 'ent-de', status: 'Active', files: 12, updated: 'Oct 15, 2026' },
-  { id: 'emp-7', name: 'Matthias Keller', workerId: 'W-201411', email: 'matthias.keller@protolab.de', entityId: 'ent-de', status: 'Terminated', files: 21, updated: 'Sep 30, 2026' },
-  { id: 'emp-8', name: 'Camille Laurent', workerId: 'W-201502', email: 'camille.laurent@protolab.fr', entityId: 'ent-fr', status: 'Active', files: 10, updated: 'Oct 17, 2026' },
-  { id: 'emp-9', name: 'Haruto Sato', workerId: 'W-300118', email: 'haruto.sato@protolab.jp', entityId: 'ent-jp', status: 'Active', files: 13, updated: 'Oct 22, 2026' },
-  { id: 'emp-10', name: 'Mei Tanaka', workerId: 'W-300146', email: 'mei.tanaka@protolab.jp', entityId: 'ent-jp', status: 'On leave', files: 8, updated: 'Oct 12, 2026' },
-  { id: 'emp-11', name: 'Jack Mitchell', workerId: 'W-300271', email: 'jack.mitchell@protolab.com.au', entityId: 'ent-au', status: 'Active', files: 15, updated: 'Oct 21, 2026' },
-  { id: 'emp-12', name: 'Sofia Alvarez', workerId: 'W-100702', email: 'sofia.alvarez@protolab.com', entityId: 'ent-us', status: 'Active', files: 7, updated: 'Oct 16, 2026' },
-  { id: 'emp-13', name: 'Daniel Brooks', workerId: 'W-201688', email: 'daniel.brooks@protolab.co.uk', entityId: 'ent-uk', status: 'Active', files: 6, updated: 'Oct 20, 2026' },
-  { id: 'emp-14', name: 'Daniel Brooks', workerId: 'W-300352', email: 'daniel.brooks@protolab.com.au', entityId: 'ent-au', status: 'Terminated', files: 18, updated: 'Aug 29, 2026' },
-  { id: 'emp-15', name: 'Priya Raman', workerId: 'W-201733', email: 'priya.raman@protolab.de', entityId: 'ent-de', status: 'Active', files: 9, updated: 'Oct 14, 2026' },
-  { id: 'emp-16', name: 'Priya Raman', workerId: 'W-300390', email: 'priya.raman@protolab.jp', entityId: 'ent-jp', status: 'Pre-hire', files: 2, updated: 'Oct 18, 2026' },
-];
-
-type EmployeeDocStatus = 'Completed' | 'Out for signature' | 'Needs review';
-interface EmployeeDoc {
-  id: string;
-  name: string;
-  type: string;
-  status: EmployeeDocStatus;
-  ageDays: number;
-  parties: string;
-}
-
-const EMPLOYEE_DOC_TYPES = ['Hiring and onboarding', 'Compensation and benefits', 'Policies and acknowledgments', 'Employment changes', 'Offboarding'] as const;
-
-const EMPLOYEE_DOC_TEMPLATES: Omit<EmployeeDoc, 'id'>[] = [
-  { name: 'Offer letter', type: 'Hiring and onboarding', status: 'Completed', ageDays: 900, parties: 'Employee, HR Business Partner' },
-  { name: 'Employment agreement', type: 'Hiring and onboarding', status: 'Completed', ageDays: 895, parties: 'Employee, Legal entity signatory' },
-  { name: 'Confidentiality and IP assignment', type: 'Hiring and onboarding', status: 'Completed', ageDays: 893, parties: 'Employee, Legal' },
-  { name: 'Direct deposit authorization', type: 'Compensation and benefits', status: 'Completed', ageDays: 890, parties: 'Employee, Payroll' },
-  { name: 'Benefits enrollment confirmation', type: 'Compensation and benefits', status: 'Completed', ageDays: 880, parties: 'Employee, Benefits team' },
-  { name: 'Code of conduct acknowledgment', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 870, parties: 'Employee' },
-  { name: 'Remote work agreement', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 420, parties: 'Employee, Manager' },
-  { name: 'Equity grant agreement', type: 'Compensation and benefits', status: 'Completed', ageDays: 400, parties: 'Employee, Stock administration' },
-  { name: 'Compensation change notice', type: 'Compensation and benefits', status: 'Completed', ageDays: 210, parties: 'Employee, Compensation team' },
-  { name: 'Promotion letter', type: 'Employment changes', status: 'Completed', ageDays: 205, parties: 'Employee, HR Business Partner' },
-  { name: 'Annual policy acknowledgment', type: 'Policies and acknowledgments', status: 'Out for signature', ageDays: 12, parties: 'Employee' },
-  { name: 'Data privacy consent', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 160, parties: 'Employee, Privacy office' },
-  { name: 'Role change addendum', type: 'Employment changes', status: 'Needs review', ageDays: 20, parties: 'Employee, Manager, HR Business Partner' },
-  { name: 'Relocation agreement', type: 'Employment changes', status: 'Completed', ageDays: 120, parties: 'Employee, Mobility team' },
-  { name: 'Performance improvement plan', type: 'Employment changes', status: 'Completed', ageDays: 95, parties: 'Employee, Manager' },
-  { name: 'Bonus plan acknowledgment', type: 'Compensation and benefits', status: 'Out for signature', ageDays: 6, parties: 'Employee, Compensation team' },
-  { name: 'Equipment acknowledgment', type: 'Policies and acknowledgments', status: 'Completed', ageDays: 60, parties: 'Employee, IT' },
-  { name: 'Leave of absence request', type: 'Employment changes', status: 'Completed', ageDays: 45, parties: 'Employee, HR Business Partner' },
-  { name: 'Separation agreement', type: 'Offboarding', status: 'Completed', ageDays: 30, parties: 'Employee, Legal' },
-  { name: 'Return of property certification', type: 'Offboarding', status: 'Completed', ageDays: 28, parties: 'Employee, IT' },
-  { name: 'Final pay statement', type: 'Offboarding', status: 'Completed', ageDays: 22, parties: 'Employee, Payroll' },
-  { name: 'Exit interview summary', type: 'Offboarding', status: 'Needs review', ageDays: 18, parties: 'HR Business Partner' },
-];
-
-const EMPLOYEE_DOC_STATUS_KIND: Record<EmployeeDocStatus, 'success' | 'subtle' | 'emphasis'> = {
-  Completed: 'success',
-  'Out for signature': 'emphasis',
-  'Needs review': 'subtle',
-};
-
-function formatEmployeeDocDate(ageDays: number): string {
-  const date = new Date(2026, 9, 22);
-  date.setDate(date.getDate() - ageDays);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function getEmployeeDocs(employee: EmployeeFile): EmployeeDoc[] {
-  const base = EMPLOYEE_DOC_TEMPLATES.map((doc, index) => ({ ...doc, id: `${employee.id}-doc-${index}` }));
-  const withoutOffboarding = base.filter(doc => doc.type !== 'Offboarding');
-  const pool = employee.status === 'Terminated' ? [...withoutOffboarding.slice(0, employee.files - 4), ...base.filter(doc => doc.type === 'Offboarding').slice(0, 4)] : withoutOffboarding;
-  const hasHiringOnly = employee.status === 'Pre-hire';
-  const picked = hasHiringOnly ? pool.slice(0, employee.files).map((doc, i) => ({ ...doc, ageDays: 14 + i * 3, status: (i === employee.files - 1 ? 'Out for signature' : 'Completed') as EmployeeDocStatus })) : pool.slice(0, employee.files);
-  return picked;
-}
-
-function getEmployeeDocRecency(ageDays: number): string {
-  if (ageDays <= 90) return 'Last 90 days';
-  if (ageDays <= 365) return 'Earlier this year';
-  return 'Prior years';
-}
-
-function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; onBack: () => void }) {
-  const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
-  const docs = useMemo(() => getEmployeeDocs(employee), [employee]);
-  const [groupBy, setGroupBy] = useState<'Type' | 'Recency'>('Type');
-  const [selectedId, setSelectedId] = useState<string>(() => [...docs].filter(doc => doc.type === EMPLOYEE_DOC_TYPES[0]).sort((a, b) => a.ageDays - b.ageDays)[0]?.id ?? docs[0]?.id ?? '');
-  const selected = docs.find(doc => doc.id === selectedId) ?? null;
-  const initials = employee.name.split(' ').map(part => part[0]).join('').slice(0, 2);
-  const completed = docs.filter(doc => doc.status === 'Completed').length;
-  const waiting = docs.filter(doc => doc.status === 'Out for signature').length;
-  const review = docs.filter(doc => doc.status === 'Needs review').length;
-
-  const expectedTypes: string[] = employee.status === 'Pre-hire'
-    ? [EMPLOYEE_DOC_TYPES[0]]
-    : employee.status === 'Terminated'
-      ? [...EMPLOYEE_DOC_TYPES]
-      : EMPLOYEE_DOC_TYPES.slice(0, 3);
-  const missingTypes = expectedTypes.filter(type => !docs.some(doc => doc.type === type));
-  const unresolved = waiting + review;
-  const hasDoc = (name: string) => docs.some(doc => doc.name === name && doc.status === 'Completed');
-  const offboardingDocs = docs.filter(doc => doc.type === 'Offboarding');
-  const offboardingOpen = offboardingDocs.filter(doc => doc.status !== 'Completed').length;
-  const pending = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
-
-  type CheckResult = { label: string; result: 'Ready' | 'Needs attention' | 'Not applicable'; reason: string };
-  const checks: CheckResult[] = [
-    missingTypes.length > 0
-      ? { label: 'Audit', result: 'Needs attention', reason: `No ${missingTypes.join(', ').toLowerCase()} documents found for this employee.` }
-      : unresolved > 0
-        ? { label: 'Audit', result: 'Needs attention', reason: `${pending(unresolved, 'document')} still ${unresolved === 1 ? 'needs' : 'need'} a signature or review.` }
-        : { label: 'Audit', result: 'Ready', reason: 'Every expected document type is present and signed.' },
-    employee.status !== 'Terminated'
-      ? { label: 'Offboarding check', result: 'Not applicable', reason: `${employee.name.split(' ')[0]} is ${employee.status === 'Pre-hire' ? 'not yet hired' : 'still employed'}, so no offboarding records are expected.` }
-      : offboardingDocs.length === 0
-        ? { label: 'Offboarding check', result: 'Needs attention', reason: 'No offboarding documents found.' }
-        : offboardingOpen > 0
-          ? { label: 'Offboarding check', result: 'Needs attention', reason: `${pending(offboardingOpen, 'offboarding document')} not yet complete.` }
-          : { label: 'Offboarding check', result: 'Ready', reason: 'Separation, property return and final pay records are all signed.' },
-    hasDoc('Offer letter') && hasDoc('Employment agreement')
-      ? { label: 'Employee verification', result: 'Ready', reason: 'Signed offer letter and employment agreement are on file.' }
-      : { label: 'Employee verification', result: 'Needs attention', reason: 'The signed offer letter or employment agreement is not on file yet.' },
-  ];
-  const needsAttention = checks.filter(check => check.result === 'Needs attention').length;
-  const completenessHeadline = missingTypes.length > 0
-    ? 'Some records are missing from this file'
-    : unresolved > 0
-      ? 'File is complete, with items still in progress'
-      : 'File is complete';
-  const completenessBody = missingTypes.length > 0
-    ? `We expected ${expectedTypes.length} document ${expectedTypes.length === 1 ? 'type' : 'types'} for ${employee.status.toLowerCase()} employees and found ${expectedTypes.length - missingTypes.length}. Missing: ${missingTypes.join(', ')}.`
-    : unresolved > 0
-      ? `All ${expectedTypes.length} expected document ${expectedTypes.length === 1 ? 'type is' : 'types are'} present. ${pending(waiting, 'document')} out for signature and ${pending(review, 'document')} waiting on review will change the totals once finished.`
-      : `All ${expectedTypes.length} expected document ${expectedTypes.length === 1 ? 'type is' : 'types are'} present and every document is signed.`;
-  const scopeRows: { label: string; value: string }[] = [
-    { label: 'Showing', value: `All ${docs.length} documents. No filters applied.` },
-    { label: 'Source', value: `Docusign agreements linked to worker ID ${employee.workerId}` },
-    { label: 'Employment record', value: `${employee.status} (from HR system, synced ${employee.updated})` },
-    { label: 'Expected for this file', value: expectedTypes.join(', ') },
-  ];
-  const checkKind: Record<CheckResult['result'], 'success' | 'emphasis' | 'subtle'> = { Ready: 'success', 'Needs attention': 'emphasis', 'Not applicable': 'subtle' };
-
-  const groupOrder = groupBy === 'Type' ? (EMPLOYEE_DOC_TYPES as readonly string[]) : ['Last 90 days', 'Earlier this year', 'Prior years'];
-  const groups = groupOrder
-    .map(label => ({
-      label,
-      items: docs.filter(doc => (groupBy === 'Type' ? doc.type : getEmployeeDocRecency(doc.ageDays)) === label).sort((a, b) => a.ageDays - b.ageDays),
-    }))
-    .filter(group => group.items.length > 0);
-  const flatDocs = groups.flatMap(group => group.items);
-  const selectedIndex = flatDocs.findIndex(doc => doc.id === selectedId);
-
-  const identity: { label: string; value: string }[] = [
-    { label: 'Region', value: entity.region },
-    { label: 'Legal entity', value: `${entity.name} (${entity.country})` },
-    { label: 'Worker ID', value: employee.workerId },
-    { label: 'Work email', value: employee.email },
-  ];
-  const summary: { label: string; value: number | string; note?: string }[] = [
-    { label: 'Documents', value: docs.length },
-    { label: 'Completed', value: completed },
-    { label: 'Out for signature', value: waiting },
-    { label: 'Needs review', value: review },
-    { label: 'Last updated', value: employee.updated },
-  ];
-
-  return (
-    <Stack gap="medium">
-      <Inline gap="small" align="center">
-        <Button kind="tertiary" size="small" onClick={onBack}>Employee Files</Button>
-        <Icon name="chevron-right" size={16} />
-        <Text size="sm" weight="medium">{employee.name}</Text>
-      </Inline>
-
-      <Card radius="medium">
-        <Card.Body>
-          <Stack gap="medium">
-            <Inline gap="medium" align="center" style={{ flexWrap: 'nowrap' }}>
-              <Avatar initials={initials} alt={employee.name} size="large" />
-              <Stack gap="none" style={{ gap: 'var(--ink-spacing-50)', flex: 1, minWidth: 0 }}>
-                <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
-                  <Heading level={2}>{employee.name}</Heading>
-                  <Badge kind={EMPLOYEE_STATUS_KIND[employee.status]} text={employee.status} />
-                </Inline>
-                <Text size="sm" color="secondary">Employee file · {docs.length} documents across {groups.length} {groupBy === 'Type' ? 'types' : 'periods'}</Text>
-              </Stack>
-              <Button kind="secondary" size="small">Share file</Button>
-            </Inline>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--ink-spacing-200)' }}>
-              {identity.map(item => (
-                <Stack key={item.label} gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-                  <Text size="xs" color="secondary">{item.label}</Text>
-                  <Text size="sm" weight="medium" style={{ overflowWrap: 'anywhere' }}>{item.value}</Text>
-                </Stack>
-              ))}
-            </div>
-          </Stack>
-        </Card.Body>
-      </Card>
-
-      <section aria-labelledby="file-completeness-heading">
-        <Card radius="medium">
-          <Card.Body>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', gap: 'var(--ink-spacing-300)', alignItems: 'start' }}>
-              <Stack gap="medium">
-                <Stack gap="none" style={{ gap: 'var(--ink-spacing-50)' }}>
-                  <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
-                    <Heading level={3} id="file-completeness-heading">{completenessHeadline}</Heading>
-                    <Badge kind={missingTypes.length === 0 && unresolved === 0 ? 'success' : 'emphasis'} text={missingTypes.length > 0 ? 'Incomplete' : unresolved > 0 ? 'In progress' : 'Complete'} />
-                  </Inline>
-                  <Text size="sm" color="secondary">{completenessBody}</Text>
-                </Stack>
-                <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', columnGap: 'var(--ink-spacing-200)', rowGap: 'var(--ink-spacing-100)' }}>
-                  {scopeRows.map(row => (
-                    <div key={row.label} style={{ display: 'contents' }}>
-                      <dt><Text size="sm" color="secondary">{row.label}</Text></dt>
-                      <dd style={{ margin: 0 }}><Text size="sm">{row.value}</Text></dd>
-                    </div>
-                  ))}
-                </dl>
-              </Stack>
-              <Stack gap="small">
-                <Text size="sm" weight="semibold">Is this file ready for&hellip;</Text>
-                <Stack gap="none" role="list" aria-label="Readiness by use">
-                  {checks.map(check => (
-                    <div key={check.label} role="listitem" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--ink-spacing-150)', padding: 'var(--ink-spacing-100) 0' }}>
-                      <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-                        <Text size="sm" weight="medium">{check.label}</Text>
-                        <Text size="xs" color="secondary">{check.reason}</Text>
-                      </Stack>
-                      <Badge kind={checkKind[check.result]} text={check.result} />
-                    </div>
-                  ))}
-                </Stack>
-                {needsAttention > 0 && <Text size="xs" color="secondary">{pending(needsAttention, 'check')} need attention before you rely on this file.</Text>}
-              </Stack>
-            </div>
-          </Card.Body>
-        </Card>
-      </section>
-
-      <Text size="sm" weight="semibold">Document status</Text>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--ink-spacing-150)', marginTop: 'calc(var(--ink-spacing-100) * -1)' }} role="group" aria-label="Document summary">
-        {summary.map(item => (
-          <Card key={item.label} radius="medium">
-            <Card.Body>
-              <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
-                <Text size="xs" color="secondary">{item.label}</Text>
-                <Text size="lg" weight="semibold">{item.value}</Text>
-              </Stack>
-            </Card.Body>
-          </Card>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 'var(--ink-spacing-200)', alignItems: 'start' }}>
-        <Stack gap="small">
-          <Inline gap="small" align="center" justify="between">
-            <Text size="md" weight="semibold">Documents</Text>
-            <Dropdown items={(['Type', 'Recency'] as const).map(value => ({ label: value, selected: value === groupBy, onClick: () => setGroupBy(value) }))}>
-              <Button kind="secondary" size="small" menuTrigger>Group by: {groupBy}</Button>
-            </Dropdown>
-          </Inline>
-          <Accordion
-            key={groupBy}
-            defaultOpenItems={groups.map(group => group.label)}
-            items={groups.map(group => ({
-              id: group.label,
-              title: group.label,
-              subtitle: `${group.items.length} ${group.items.length === 1 ? 'document' : 'documents'}`,
-              content: (
-                <Stack gap="none" role="list" aria-label={group.label}>
-                  {group.items.map(doc => {
-                    const isSelected = doc.id === selectedId;
-                    return (
-                      <div key={doc.id} role="listitem">
-                        <button
-                          type="button"
-                          aria-pressed={isSelected}
-                          onClick={() => setSelectedId(doc.id)}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 'var(--ink-spacing-150)', width: '100%', textAlign: 'left', cursor: 'pointer',
-                            padding: 'var(--ink-spacing-100) var(--ink-spacing-150)', border: 'none', borderRadius: 'var(--ink-radius-100, 8px)',
-                            background: isSelected ? 'var(--ink-cobalt-10, #eef0ff)' : 'transparent', font: 'inherit', color: 'inherit',
-                          }}
-                        >
-                          <Icon name="document" size={20} color={isSelected ? 'var(--ink-cobalt-90)' : undefined} />
-                          <span style={{ flex: 1, minWidth: 0 }}>
-                            <Text size="sm" weight={isSelected ? 'semibold' : 'medium'}>{doc.name}</Text>
-                            <Text size="xs" color="secondary">{groupBy === 'Type' ? formatEmployeeDocDate(doc.ageDays) : `${doc.type} · ${formatEmployeeDocDate(doc.ageDays)}`}</Text>
-                          </span>
-                          <Badge kind={EMPLOYEE_DOC_STATUS_KIND[doc.status]} text={doc.status} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </Stack>
-              ),
-            }))}
-          />
-        </Stack>
-
-        <aside aria-label="Document preview" style={{ position: 'sticky', top: 'var(--ink-spacing-200)' }}>
-          <Card radius="medium">
-            <Card.Body>
-              {selected ? (
-                <Stack gap="medium">
-                  <Inline gap="small" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
-                    <Text size="sm" color="secondary">Preview · {selectedIndex + 1} of {flatDocs.length}</Text>
-                    <Inline gap="none" align="center" style={{ flexWrap: 'nowrap' }}>
-                      <IconButton icon="chevron-up" variant="tertiary" size="small" aria-label="Previous document" disabled={selectedIndex <= 0} onClick={() => setSelectedId(flatDocs[selectedIndex - 1].id)} />
-                      <IconButton icon="chevron-down" variant="tertiary" size="small" aria-label="Next document" disabled={selectedIndex >= flatDocs.length - 1} onClick={() => setSelectedId(flatDocs[selectedIndex + 1].id)} />
-                    </Inline>
-                  </Inline>
-
-                  <div
-                    role="img"
-                    aria-label={`First page of ${selected.name}`}
-                    style={{
-                      background: 'var(--ink-white, #fff)', border: '1px solid var(--ink-gray-20, #e1e1e1)', borderRadius: 'var(--ink-radius-100, 8px)',
-                      padding: 'var(--ink-spacing-200)', aspectRatio: '8.5 / 7', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--ink-spacing-100)',
-                    }}
-                  >
-                    <Text size="xs" weight="semibold">{entity.name}</Text>
-                    <Text size="sm" weight="semibold">{selected.name}</Text>
-                    {[100, 94, 98, 62, 100, 90, 96, 70].map((width, index) => (
-                      <div key={index} style={{ height: 6, width: `${width}%`, borderRadius: 3, background: 'var(--ink-gray-20, #e1e1e1)' }} />
-                    ))}
-                    <div style={{ marginTop: 'auto', display: 'flex', gap: 'var(--ink-spacing-200)' }}>
-                      <div style={{ flex: 1, borderTop: '1px solid var(--ink-gray-60, #767676)', paddingTop: 'var(--ink-spacing-25)' }}><Text size="xs" color="secondary">{employee.name}</Text></div>
-                      <div style={{ flex: 1, borderTop: '1px solid var(--ink-gray-60, #767676)', paddingTop: 'var(--ink-spacing-25)' }}><Text size="xs" color="secondary">{entity.name.split(' ')[0]} representative</Text></div>
-                    </div>
-                  </div>
-
-                  <Stack gap="small">
-                    <Text size="md" weight="semibold">{selected.name}</Text>
-                    <div><Badge kind={EMPLOYEE_DOC_STATUS_KIND[selected.status]} text={selected.status} /></div>
-                  </Stack>
-                  {[
-                    { label: 'Document type', value: selected.type },
-                    { label: 'Date', value: formatEmployeeDocDate(selected.ageDays) },
-                    { label: 'Parties', value: selected.parties },
-                  ].map(row => (
-                    <Stack key={row.label} gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
-                      <Text size="xs" color="secondary">{row.label}</Text>
-                      <Text size="sm">{row.value}</Text>
-                    </Stack>
-                  ))}
-                  <Inline gap="small">
-                    <Button kind="primary" size="small">Open document</Button>
-                    <Button kind="secondary" size="small">Download</Button>
-                  </Inline>
-                </Stack>
-              ) : (
-                <Text size="sm" color="secondary">Select a document to preview it.</Text>
-              )}
-            </Card.Body>
-          </Card>
-        </aside>
-      </div>
-    </Stack>
-  );
-}
-
-function EmployeeSearchResults({ rows, query, onOpen }: { rows: EmployeeFile[]; query: string; onOpen: (employee: EmployeeFile) => void }) {
-  const sorted = useMemo(() => [...rows].sort((a, b) => a.name.localeCompare(b.name) || a.workerId.localeCompare(b.workerId)), [rows]);
-  const nameCounts = sorted.reduce<Record<string, number>>((acc, employee) => ({ ...acc, [employee.name]: (acc[employee.name] ?? 0) + 1 }), {});
-  const duplicateNames = Object.keys(nameCounts).filter(name => nameCounts[name] > 1);
-
-  if (sorted.length === 0) {
-    return <Banner kind="information" closable={false} lineWrap>No employee files match &ldquo;{query}&rdquo;. Try a different name, worker ID, or work email.</Banner>;
-  }
-
-  return (
-    <Stack gap="medium">
-      <Stack gap="small">
-        {duplicateNames.length > 0 && (
-          <Banner kind="warning" closable={false} lineWrap>
-            {duplicateNames.map(name => `${nameCounts[name]} employees are named ${name}`).join('; ')}. Compare worker ID, legal entity, and work email before opening a file.
-          </Banner>
-        )}
-        <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
-          <Text size="md" weight="semibold" aria-live="polite">
-            {sorted.length} {sorted.length === 1 ? 'employee' : 'employees'} found
-          </Text>
-          <Text size="sm" color="secondary">Select the correct employee file</Text>
-        </Inline>
-      </Stack>
-
-      <Stack gap="small" role="list" aria-label="Employee search results">
-        {sorted.map(employee => {
-          const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
-          const isDuplicate = nameCounts[employee.name] > 1;
-          const details: { label: string; value: string; sub?: string }[] = [
-            { label: 'Worker ID', value: employee.workerId },
-            { label: 'Legal entity', value: entity.name, sub: `${entity.region} · ${entity.country}` },
-            { label: 'Work email', value: employee.email },
-            { label: 'Files', value: String(employee.files), sub: `Updated ${employee.updated}` },
-          ];
-          return (
-            <div key={employee.id} role="listitem">
-              <Card radius="medium">
-                <Card.Body>
-                  <Inline gap="large" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
-                    <Stack gap="small" style={{ flex: 1, minWidth: 0 }}>
-                      <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
-                        <Icon name="folder" size={20} color="var(--ink-cobalt-90)" />
-                        <Text size="md" weight="semibold">{employee.name}</Text>
-                        <Badge kind={EMPLOYEE_STATUS_KIND[employee.status]} text={employee.status} />
-                        {isDuplicate && <Badge kind="emphasis" text="Same name" />}
-                      </Inline>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 'var(--ink-spacing-200)' }}>
-                        {details.map(detail => (
-                          <Stack key={detail.label} gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-                            <Text size="xs" color="secondary">{detail.label}</Text>
-                            <Text size="sm" weight="medium" style={{ overflowWrap: 'anywhere' }}>{detail.value}</Text>
-                            {detail.sub && <Text size="xs" color="secondary">{detail.sub}</Text>}
-                          </Stack>
-                        ))}
-                      </div>
-                    </Stack>
-                    <Button kind="secondary" size="small" onClick={() => onOpen(employee)} aria-label={`Open file for ${employee.name}, worker ID ${employee.workerId}`}>
-                      Open file
-                    </Button>
-                  </Inline>
-                </Card.Body>
-              </Card>
-            </div>
-          );
-        })}
-      </Stack>
-    </Stack>
-  );
-}
-
-const EMPLOYEE_STATUS_KIND: Record<EmployeeStatus, 'success' | 'subtle' | 'emphasis'> = {
-  Active: 'success',
-  'On leave': 'emphasis',
-  'Pre-hire': 'subtle',
-  Terminated: 'subtle',
-};
-
-const PEOPLE_ALL_SCOPE = 'all';
-
-function getPeopleScopeLabel(scope: string): string {
-  if (scope === PEOPLE_ALL_SCOPE) return 'All regions';
-  const entity = LEGAL_ENTITIES.find(item => item.id === scope);
-  return entity ? entity.name : scope;
-}
-
-function getPeopleSidebar(scope: string, onScopeChange: (scope: string) => void): React.ComponentProps<typeof LocalNav> {
-  return {
-    className: 'people-live-nav',
-    allowCollapsibility: false,
-    activeItemId: scope,
-    sections: [{
-      id: 'employee-files',
-      items: [
-        { id: PEOPLE_ALL_SCOPE, label: 'All employee files', icon: 'folder-open', onClick: () => onScopeChange(PEOPLE_ALL_SCOPE) },
-        ...PEOPLE_REGIONS.flatMap(region => [
-          { id: region, label: region, icon: 'folder' as const, onClick: () => onScopeChange(region) },
-          ...LEGAL_ENTITIES.filter(entity => entity.region === region).map(entity => ({
-            id: entity.id, label: entity.name, nested: true, onClick: () => onScopeChange(entity.id),
-          })),
-        ]),
-      ],
-    }],
-  };
-}
-
-function PeoplePage({ scope, onScopeChange, search, onSearchChange }: {
-  scope: string;
-  onScopeChange: (scope: string) => void;
-  search: string;
-  onSearchChange: (value: string) => void;
-}) {
-  const [status, setStatus] = useState<'All statuses' | EmployeeStatus>('All statuses');
-  const [openedEmployee, setOpenedEmployee] = useState<EmployeeFile | null>(null);
-
-  const rows = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return EMPLOYEE_FILES_DATA.filter(employee => {
-      const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
-      const inScope = scope === PEOPLE_ALL_SCOPE || scope === entity.region || scope === entity.id;
-      const matchesStatus = status === 'All statuses' || employee.status === status;
-      const matchesSearch = !query || `${employee.name} ${employee.workerId} ${employee.email}`.toLowerCase().includes(query);
-      return inScope && matchesStatus && matchesSearch;
-    });
-  }, [scope, search, status]);
-
-  const scopeEntity = LEGAL_ENTITIES.find(item => item.id === scope);
-  const scopeTrail = scope === PEOPLE_ALL_SCOPE ? ['All regions'] : scopeEntity ? [scopeEntity.region, scopeEntity.name] : [scope];
-  const scopeItems = [
-    { id: PEOPLE_ALL_SCOPE, label: 'All regions' },
-    ...PEOPLE_REGIONS.map(region => ({ id: region, label: region })),
-    ...LEGAL_ENTITIES.map(entity => ({ id: entity.id, label: `${entity.name} (${entity.country})` })),
-  ];
-  const fileTotal = rows.reduce((sum, employee) => sum + employee.files, 0);
-
-  const columns: DataTableColumn<EmployeeFile>[] = [
-    {
-      key: 'name',
-      header: 'Employee',
-      sortable: true,
-      cell: row => (
-        <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-          <Icon name="folder" size={20} color="var(--ink-cobalt-90)" />
-          <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-            <Button kind="tertiary" size="small" onClick={() => setOpenedEmployee(row)} aria-label={`Open file for ${row.name}, worker ID ${row.workerId}`}>{row.name}</Button>
-            <Text size="xs" color="secondary">{row.workerId}</Text>
-          </Stack>
-        </Inline>
-      ),
-    },
-    {
-      key: 'entity',
-      header: 'Legal entity',
-      cell: row => {
-        const entity = LEGAL_ENTITIES.find(item => item.id === row.entityId)!;
-        return (
-          <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
-            <Text size="sm">{entity.name}</Text>
-            <Text size="xs" color="secondary">{entity.region} · {entity.country}</Text>
-          </Stack>
-        );
-      },
-    },
-    { key: 'status', header: 'Employment status', width: '16%', cell: row => <Badge kind={EMPLOYEE_STATUS_KIND[row.status]} text={row.status} /> },
-    { key: 'email', header: 'Work email', cell: row => <Text size="sm">{row.email}</Text> },
-    { key: 'files', header: 'Files', width: '8%', sortable: true, cell: row => <Text size="sm">{row.files}</Text> },
-    { key: 'updated', header: 'Last updated', width: '14%', sortable: true, cell: row => <Text size="sm">{row.updated}</Text> },
-  ];
-
-  if (openedEmployee) {
-    return (
-      <AgreementTableView pageHeader={<PageHeader title="Employee Files" />} filterBar={<span />}>
-        <EmployeeFileWorkspace employee={openedEmployee} onBack={() => setOpenedEmployee(null)} />
-      </AgreementTableView>
-    );
-  }
-
-  return (
-    <AgreementTableView
-      pageHeader={<PageHeader title="Employee Files" />}
-      filterBar={
-        <FilterBar
-          viewSelector={
-            <Dropdown items={scopeItems.map(item => ({ label: item.label, selected: item.id === scope, onClick: () => onScopeChange(item.id) }))}>
-              <Button kind="secondary" size="small" menuTrigger startElement={<Icon name="folder-open" size={16} />}>
-                Scope: {getPeopleScopeLabel(scope)}
-              </Button>
-            </Dropdown>
-          }
-          search={{ value: search, onChange: onSearchChange, placeholder: 'Search by employee name' }}
-          filters={
-            <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
-              <Dropdown items={(['All statuses', 'Active', 'On leave', 'Pre-hire', 'Terminated'] as const).map(value => ({ label: value, selected: value === status, onClick: () => setStatus(value) }))}>
-                <Button kind="secondary" size="small" menuTrigger>{status === 'All statuses' ? 'Employment status' : status}</Button>
-              </Dropdown>
-              <Button kind="tertiary" size="small" onClick={() => { onSearchChange(''); setStatus('All statuses'); onScopeChange(PEOPLE_ALL_SCOPE); }}>Clear all</Button>
-            </Inline>
-          }
-        />
-      }
-    >
-      {search.trim() ? (
-        <Stack gap="small">
-          <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
-            <Icon name="folder-open" size={16} />
-            <Text size="sm" weight="medium">{scopeTrail.join(' / ')}</Text>
-            <Text size="sm" color="secondary">Results for &ldquo;{search.trim()}&rdquo;</Text>
-          </Inline>
-          <EmployeeSearchResults rows={rows} query={search.trim()} onOpen={setOpenedEmployee} />
-        </Stack>
-      ) : (
-      <Stack gap="small">
-        <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
-          <Icon name="folder-open" size={16} />
-          <Text size="sm" weight="medium">{scopeTrail.join(' / ')}</Text>
-          <Text size="sm" color="secondary" aria-live="polite">
-            {rows.length} {rows.length === 1 ? 'employee' : 'employees'} · {fileTotal} files in view
-          </Text>
-        </Inline>
-        <DataTable
-          columns={columns}
-          data={rows}
-          getRowKey={row => row.id}
-          stickyHeader
-          showColumnControl
-          rowHeight="tall"
-          emptyMessage="No employee files match this scope and search"
-          pagination={{ page: 1, pageSize: 25, totalItems: rows.length, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true }}
-        />
-      </Stack>
-      )}
-    </AgreementTableView>
-  );
-}
-
 function getTabFromHash(): TabId {
   const hash = window.location.hash.replace('#', '');
   return VALID_TABS.includes(hash as TabId) ? (hash as TabId) : 'home';
@@ -4991,8 +3838,6 @@ function PrototypeApp() {
   const [accountUsers, setAccountUsers] = useState<AccountUser[]>(ACCOUNT_USERS);
   const [accountSettings, setAccountSettings] = useState<AccountSettings>(DEFAULT_ACCOUNT_SETTINGS);
   const [adminView, setAdminView] = useState<AdminView>(ADMIN_DEFAULT_VIEW);
-  const [peopleScope, setPeopleScope] = useState<string>(PEOPLE_ALL_SCOPE);
-  const [peopleSearch, setPeopleSearch] = useState('');
   const [sidebarView, setSidebarView] = useState<SidebarView>('completed');
   const [templatesSidebarView, setTemplatesSidebarView] = useState<TemplatesSidebarView>('my-templates');
   const [templateItems, setTemplateItems] = useState<TemplateItem[]>(() => [...TEMPLATES_DATA, ...TEMPLATE_RESOURCES_DATA]);
@@ -5227,7 +4072,7 @@ function PrototypeApp() {
   const partyProactiveSeeded = useRef(false);
   const openIris = useCallback(() => {
     setNavSlot(null);
-    if (sidebarView.startsWith('parties') && !partyProactiveSeeded.current) {
+    if (sidebarView === 'parties' && !partyProactiveSeeded.current) {
       partyProactiveSeeded.current = true;
       setMessages((prev) =>
         prev.length
@@ -5297,9 +4142,7 @@ function PrototypeApp() {
       { id: 'new-template', label: 'New Template', icon: 'star' as const, onClick: () => handleTabClick('templates') },
       { id: 'upload', label: 'Upload Document', icon: 'upload' as const, onClick: () => setHomeCreation({ kind: 'envelope', files: [] }) },
     ],
-    activeItemId: sidebarView === 'people' && peopleScope !== PEOPLE_ALL_SCOPE
-      ? peopleScope
-      : sidebarView === 'parties' ? 'parties-organizations' : sidebarView,
+    activeItemId: sidebarView,
     sections: [
       {
         id: 'agreements',
@@ -5315,25 +4158,10 @@ function PrototypeApp() {
         { id: 'folders-item', label: 'Folders', icon: 'folder' as const, hasMenu: true },
       ]},
       {
-        id: 'people-files',
-        hasDivider: true,
-        items: [
-          { id: 'people', label: 'People', icon: 'people' as const, onClick: () => { setPeopleScope(PEOPLE_ALL_SCOPE); setSidebarView('people'); } },
-          ...(sidebarView === 'people' ? PEOPLE_REGIONS.flatMap(region => [
-            { id: region, label: region, icon: 'folder' as const, nested: true, onClick: () => setPeopleScope(region) },
-            ...LEGAL_ENTITIES.filter(entity => entity.region === region).map(entity => ({
-              id: entity.id, label: entity.name, nested: true, onClick: () => setPeopleScope(entity.id),
-            })),
-          ]) : []),
-        ],
-      },
-      {
         id: 'features',
         hasDivider: true,
         items: [
-          { id: 'parties', label: 'Parties', icon: 'building-person' as const, onClick: () => setSidebarView('parties-organizations') },
-          { id: 'parties-organizations', label: 'Organizations', nested: true, onClick: () => setSidebarView('parties-organizations') },
-          { id: 'parties-people', label: 'People', nested: true, onClick: () => setSidebarView('parties-people') },
+          { id: 'parties', label: 'Parties', icon: 'building-person' as const, onClick: () => setSidebarView('parties') },
           { id: 'requests', label: 'Requests', icon: 'ticket' as const, onClick: () => setSidebarView('requests') },
           { id: 'signatories', label: 'Signatories', icon: 'person-circle' as const },
           { id: 'maestro', label: 'Workflows', icon: 'workflow' as const, badge: 'New', onClick: () => { handleTabClick('automations'); setAutomationView('workflows'); } },
@@ -5456,14 +4284,19 @@ function PrototypeApp() {
     return viewAgreements.filter((a) => a.name.toLowerCase().includes(q) || a.recipient.toLowerCase().includes(q));
   }, [search, viewAgreements]);
 
+  const filteredParties = useMemo(() => {
+    if (!search) return PARTIES_DATA;
+    const q = search.toLowerCase();
+    return PARTIES_DATA.filter((p) => p.name.toLowerCase().includes(q) || p.role.toLowerCase().includes(q));
+  }, [search]);
+
   const VIEW_LABELS: Record<SidebarView, string> = {
     'all-agreements': 'All Agreements', drafts: 'Drafts', 'in-progress': 'In Progress',
-    completed: 'Completed', deleted: 'Deleted', parties: 'Parties', 'parties-organizations': 'Organizations',
-    'parties-people': 'People', requests: 'Requests', workspaces: 'Workspaces', powerforms: 'PowerForms',
-    people: 'People',
+    completed: 'Completed', deleted: 'Deleted', parties: 'Parties', requests: 'Requests',
+    workspaces: 'Workspaces', powerforms: 'PowerForms',
   };
 
-  const isPartiesView = sidebarView.startsWith('parties');
+  const isPartiesView = sidebarView === 'parties';
   const isNavigatorView = sidebarView === 'completed';
   const isRequestsView = sidebarView === 'requests';
   const isWorkspacesView = sidebarView === 'workspaces';
@@ -5528,9 +4361,7 @@ function PrototypeApp() {
   const insightsContent = <InsightsPage view={insightsSidebarView} onNavigate={navigateInsightView} reports={insightReports} onReportsChange={setInsightReports} creator={insightCreator} onCreatorChange={setInsightCreator} search={search} onSearchChange={setSearch} />;
 
   /* ── Agreements content ── */
-  const agreementsContent = isPartiesView ? (
-    <PartiesPage key={sidebarView} view={sidebarView === 'parties-people' ? 'people' : 'organizations'} onAskIris={openIris} />
-  ) : (
+  const agreementsContent = (
     <AgreementTableView
       paddingVariant={isEnvelopeListView ? 'compact' : 'default'}
       banner={isNavigatorView ? <CompletedInsightsPanel /> : isPowerFormsView ? (
@@ -5564,9 +4395,16 @@ function PrototypeApp() {
           </Inline>
         ) : (
         <PageHeader
-          title={isRequestsView ? 'Requests' : VIEW_LABELS[sidebarView]}
+          title={isPartiesView ? 'Parties' : isRequestsView ? 'Requests' : VIEW_LABELS[sidebarView]}
+          showAIBadge={isPartiesView}
           aiBadgeText="AI-Assisted"
-          actions={isRequestsView
+          actions={isPartiesView
+            ? (<>
+                <IconButton icon="chart-bar" variant="tertiary" size="small" aria-label="Analytics" />
+                <Button kind="secondary" startElement={<Icon name="settings" size={16} />}>Manage Parties</Button>
+                <Button kind="primary" size="small" onClick={openIris} startElement={<IrisIconInverse size={20} />} className="iris-ask-button">Ask Iris</Button>
+              </>)
+            : isRequestsView
             ? <Button kind="primary" onClick={() => setHomeCreation({ kind: 'request', files: [] })}>Create Request</Button>
             : isWorkspacesView
             ? <Button kind="primary">Create Workspace</Button>
@@ -5578,11 +4416,15 @@ function PrototypeApp() {
       filterBar={
         <FilterBar
           className={isEnvelopeListView ? 'agreement-list-filters' : undefined}
+          viewSelector={isPartiesView ? (
+            <Button kind="secondary" size="small" menuTrigger>Role View</Button>
+          ) : undefined}
           search={{
             value: search,
             onChange: setSearch,
             placeholder: isNavigatorView
               ? "Try 'which agreements expire in 90 days'"
+              : isPartiesView ? 'Search parties...'
               : isRequestsView ? 'Search Request Titles or IDs...'
               : isWorkspacesView ? 'Search Workspaces'
               : isPowerFormsView ? 'Search All PowerForms'
@@ -5596,7 +4438,12 @@ function PrototypeApp() {
           ] : isRequestsView ? [
             <IconButton key="bm" icon="bookmark" variant="secondary" size="small" aria-label="Bookmarks" />,
           ] : undefined}
-          filters={isRequestsView ? (
+          filters={isPartiesView ? (
+            <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
+              <Button kind="secondary" size="small" menuTrigger>Party Roles</Button>
+              <Button kind="secondary" size="small" menuTrigger>Party Side</Button>
+            </Inline>
+          ) : isRequestsView ? (
             <Inline gap="small" align="center" style={{ flexWrap: 'nowrap' }}>
               <Chip onRemove={() => {}}>Status Type: Open</Chip>
               <Button kind="secondary" size="small" menuTrigger>Created At</Button>
@@ -5641,6 +4488,8 @@ function PrototypeApp() {
     >
       {isWorkspacesView ? (
         <DataTable columns={workspaceColumns} data={filteredWorkspaces} getRowKey={(row) => row.id} selectable stickyHeader showColumnControl emptyMessage="No workspaces found" onRowClick={(row) => setActiveWorkspace(row)} pagination={{ page: 1, pageSize: 25, totalItems: filteredWorkspaces.length, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true }} />
+      ) : isPartiesView ? (
+        <DataTable columns={partyColumns} data={filteredParties} getRowKey={(row) => row.id} stickyHeader showColumnControl emptyMessage="No parties match your search" pagination={{ page: 1, pageSize: 25, totalItems: 1334, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true }} />
       ) : isRequestsView ? (
         <DataTable columns={requestColumns} data={filteredRequests} getRowKey={(row) => row.id} stickyHeader showColumnControl rowHeight="tall" emptyMessage="No requests found" onRowClick={(row) => setActiveRequest(row)} pagination={{ page: 1, pageSize: 10, totalItems: filteredRequests.length, onPageChange: () => {}, onPageSizeChange: () => {}, showInfo: true }} />
       ) : isPowerFormsView ? (
@@ -5702,9 +4551,7 @@ function PrototypeApp() {
       onAskIris={openIris}
       onBegin={(kind, files = []) => setHomeCreation({ kind, files })}
     />,
-    agreements: sidebarView === 'people'
-      ? <PeoplePage scope={peopleScope} onScopeChange={setPeopleScope} search={peopleSearch} onSearchChange={setPeopleSearch} />
-      : agreementsContent,
+    agreements: agreementsContent,
     templates: templatesContent,
     automations: <AutomationsPage workflows={workflows} onChange={setWorkflows} view={automationView} onNavigate={setAutomationView} />,
     insights: insightsContent,
