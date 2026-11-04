@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════���������════════════════════════════════
+/* ══════�����������════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -4056,47 +4056,6 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
           </Stack>
         </Card.Body>
       </Card>
-
-      <section aria-labelledby="file-completeness-heading">
-        <Card radius="medium">
-          <Card.Body>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', gap: 'var(--ink-spacing-300)', alignItems: 'start' }}>
-              <Stack gap="medium">
-                <Stack gap="none" style={{ gap: 'var(--ink-spacing-50)' }}>
-                  <Inline gap="small" align="center" style={{ flexWrap: 'wrap' }}>
-                    <Heading level={3} id="file-completeness-heading">{completenessHeadline}</Heading>
-                    <Badge kind={missingTypes.length === 0 && unresolved === 0 ? 'success' : 'emphasis'} text={missingTypes.length > 0 ? 'Incomplete' : unresolved > 0 ? 'In progress' : 'Complete'} />
-                  </Inline>
-                  <Text size="sm" color="secondary">{completenessBody}</Text>
-                </Stack>
-                <dl style={{ margin: 0, display: 'grid', gridTemplateColumns: 'max-content minmax(0, 1fr)', columnGap: 'var(--ink-spacing-200)', rowGap: 'var(--ink-spacing-100)' }}>
-                  {scopeRows.map(row => (
-                    <div key={row.label} style={{ display: 'contents' }}>
-                      <dt><Text size="sm" color="secondary">{row.label}</Text></dt>
-                      <dd style={{ margin: 0 }}><Text size="sm">{row.value}</Text></dd>
-                    </div>
-                  ))}
-                </dl>
-              </Stack>
-              <Stack gap="small">
-                <Text size="sm" weight="semibold">Is this file ready for&hellip;</Text>
-                <Stack gap="none" role="list" aria-label="Readiness by use">
-                  {checks.map(check => (
-                    <div key={check.label} role="listitem" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--ink-spacing-150)', padding: 'var(--ink-spacing-100) 0' }}>
-                      <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)', minWidth: 0 }}>
-                        <Text size="sm" weight="medium">{check.label}</Text>
-                        <Text size="xs" color="secondary">{check.reason}</Text>
-                      </Stack>
-                      <Badge kind={checkKind[check.result]} text={check.result} />
-                    </div>
-                  ))}
-                </Stack>
-                {needsAttention > 0 && <Text size="xs" color="secondary">{pending(needsAttention, 'check')} need attention before you rely on this file.</Text>}
-              </Stack>
-            </div>
-          </Card.Body>
-        </Card>
-      </section>
 
       <Text size="sm" weight="semibold">Document status</Text>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--ink-spacing-150)', marginTop: 'calc(var(--ink-spacing-100) * -1)' }} role="group" aria-label="Document summary">
