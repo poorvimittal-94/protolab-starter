@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════�������════════════════════════════════
+/* ══════���������════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -3943,7 +3943,7 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
   const entity = LEGAL_ENTITIES.find(item => item.id === employee.entityId)!;
   const docs = useMemo(() => getEmployeeDocs(employee), [employee]);
   const [groupBy, setGroupBy] = useState<'Type' | 'Recency'>('Type');
-  const [selectedId, setSelectedId] = useState<string>(() => (docs.find(doc => doc.status !== 'Completed') ?? docs[0])?.id ?? '');
+  const [selectedId, setSelectedId] = useState<string>(() => [...docs].filter(doc => doc.type === EMPLOYEE_DOC_TYPES[0]).sort((a, b) => a.ageDays - b.ageDays)[0]?.id ?? docs[0]?.id ?? '');
   const selected = docs.find(doc => doc.id === selectedId) ?? null;
   const initials = employee.name.split(' ').map(part => part[0]).join('').slice(0, 2);
   const completed = docs.filter(doc => doc.status === 'Completed').length;
