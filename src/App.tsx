@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════�����������════════════════════════════════
+/* ══════�������������════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -3944,7 +3944,7 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
   const docs = useMemo(() => getEmployeeDocs(employee), [employee]);
   const [groupBy, setGroupBy] = useState<'Type' | 'Recency'>('Type');
   const [selectedId, setSelectedId] = useState<string>(() => [...docs].filter(doc => doc.type === EMPLOYEE_DOC_TYPES[0]).sort((a, b) => a.ageDays - b.ageDays)[0]?.id ?? docs[0]?.id ?? '');
-  const selected = docs.find(doc => doc.id === selectedId) ?? null;
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const initials = employee.name.split(' ').map(part => part[0]).join('').slice(0, 2);
   const completed = docs.filter(doc => doc.status === 'Completed').length;
   const waiting = docs.filter(doc => doc.status === 'Out for signature').length;
@@ -4003,11 +4003,12 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
   const groups = groupOrder
     .map(label => ({
       label,
-      items: docs.filter(doc => (groupBy === 'Type' ? doc.type : getEmployeeDocRecency(doc.ageDays)) === label).sort((a, b) => a.ageDays - b.ageDays),
+      items: docs.filter(doc => (!statusFilter || doc.status === statusFilter) && (groupBy === 'Type' ? doc.type : getEmployeeDocRecency(doc.ageDays)) === label).sort((a, b) => a.ageDays - b.ageDays),
     }))
     .filter(group => group.items.length > 0);
   const flatDocs = groups.flatMap(group => group.items);
-  const selectedIndex = flatDocs.findIndex(doc => doc.id === selectedId);
+  const selected = flatDocs.find(doc => doc.id === selectedId) ?? flatDocs[0] ?? null;
+  const selectedIndex = selected ? flatDocs.findIndex(doc => doc.id === selected.id) : -1;
 
   const identity: { label: string; value: string }[] = [
     { label: 'Region', value: entity.region },
@@ -4015,11 +4016,11 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
     { label: 'Worker ID', value: employee.workerId },
     { label: 'Work email', value: employee.email },
   ];
-  const summary: { label: string; value: number | string; note?: string }[] = [
-    { label: 'Documents', value: docs.length },
-    { label: 'Completed', value: completed },
-    { label: 'Out for signature', value: waiting },
-    { label: 'Needs review', value: review },
+  const summary: { label: string; value: number | string; filter?: string | null }[] = [
+    { label: 'Documents', value: docs.length, filter: null },
+    { label: 'Completed', value: completed, filter: 'Completed' },
+    { label: 'Out for signature', value: waiting, filter: 'Out for signature' },
+    { label: 'Needs review', value: review, filter: 'Needs review' },
     { label: 'Last updated', value: employee.updated },
   ];
 
@@ -4059,16 +4060,35 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
 
       <Text size="sm" weight="semibold">Document status</Text>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 'var(--ink-spacing-150)', marginTop: 'calc(var(--ink-spacing-100) * -1)' }} role="group" aria-label="Document summary">
-        {summary.map(item => (
-          <Card key={item.label} radius="medium">
-            <Card.Body>
-              <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
-                <Text size="xs" color="secondary">{item.label}</Text>
-                <Text size="lg" weight="semibold">{item.value}</Text>
-              </Stack>
-            </Card.Body>
-          </Card>
-        ))}
+        {summary.map(item => {
+          const card = (
+            <Card radius="medium">
+              <Card.Body>
+                <Stack gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
+                  <Text size="xs" color="secondary">{item.label}</Text>
+                  <Text size="lg" weight="semibold">{item.value}</Text>
+                </Stack>
+              </Card.Body>
+            </Card>
+          );
+          if (item.filter === undefined) return <div key={item.label}>{card}</div>;
+          const active = (statusFilter ?? null) === item.filter;
+          return (
+            <button
+              key={item.label}
+              type="button"
+              aria-pressed={active}
+              aria-label={`${item.label}: ${item.value}. ${item.filter === null ? 'Show all documents' : `Filter documents to ${item.label.toLowerCase()}`}`}
+              onClick={() => setStatusFilter(active || !item.filter ? null : item.filter)}
+              style={{
+                padding: 0, border: 'none', background: 'transparent', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer',
+                borderRadius: 'var(--ink-radius-200, 12px)', boxShadow: active ? '0 0 0 2px var(--ink-cobalt-90)' : 'none',
+              }}
+            >
+              {card}
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 'var(--ink-spacing-200)', alignItems: 'start' }}>
@@ -4079,8 +4099,9 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
               <Button kind="secondary" size="small" menuTrigger>Group by: {groupBy}</Button>
             </Dropdown>
           </Inline>
+          {groups.length === 0 && <Text size="sm" color="secondary" role="status">No documents match this status.</Text>}
           <Accordion
-            key={groupBy}
+            key={`${groupBy}-${statusFilter ?? 'all'}`}
             defaultOpenItems={groups.map(group => group.label)}
             items={groups.map(group => ({
               id: group.label,
