@@ -364,7 +364,7 @@ function getAgreementColumns(onEditDraft: (agreement: Agreement) => void): DataT
   ];
 }
 
-/* ══════�����════════════════════════════════
+/* ══════�������════════════════════════════════
    Navigator (Completed) Data — matches Navigator view
    ═══════════════════════════════════════ */
 
@@ -3957,6 +3957,8 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
       items: docs.filter(doc => (groupBy === 'Type' ? doc.type : getEmployeeDocRecency(doc.ageDays)) === label).sort((a, b) => a.ageDays - b.ageDays),
     }))
     .filter(group => group.items.length > 0);
+  const flatDocs = groups.flatMap(group => group.items);
+  const selectedIndex = flatDocs.findIndex(doc => doc.id === selectedId);
 
   const identity: { label: string; value: string }[] = [
     { label: 'Region', value: entity.region },
@@ -4019,7 +4021,7 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 340px', gap: 'var(--ink-spacing-200)', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 'var(--ink-spacing-200)', alignItems: 'start' }}>
         <Stack gap="small">
           <Inline gap="small" align="center" justify="between">
             <Text size="md" weight="semibold">Documents</Text>
@@ -4066,23 +4068,46 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
           />
         </Stack>
 
-        <aside aria-label="Document preview">
+        <aside aria-label="Document preview" style={{ position: 'sticky', top: 'var(--ink-spacing-200)' }}>
           <Card radius="medium">
             <Card.Body>
               {selected ? (
                 <Stack gap="medium">
-                  <Stack gap="small">
-                    <Inline gap="small" align="center">
-                      <Icon name="document" size={20} color="var(--ink-cobalt-90)" />
-                      <Text size="md" weight="semibold">{selected.name}</Text>
+                  <Inline gap="small" align="center" justify="between" style={{ flexWrap: 'nowrap' }}>
+                    <Text size="sm" color="secondary">Preview · {selectedIndex + 1} of {flatDocs.length}</Text>
+                    <Inline gap="none" align="center" style={{ flexWrap: 'nowrap' }}>
+                      <IconButton icon="chevron-up" variant="tertiary" size="small" aria-label="Previous document" disabled={selectedIndex <= 0} onClick={() => setSelectedId(flatDocs[selectedIndex - 1].id)} />
+                      <IconButton icon="chevron-down" variant="tertiary" size="small" aria-label="Next document" disabled={selectedIndex >= flatDocs.length - 1} onClick={() => setSelectedId(flatDocs[selectedIndex + 1].id)} />
                     </Inline>
+                  </Inline>
+
+                  <div
+                    role="img"
+                    aria-label={`First page of ${selected.name}`}
+                    style={{
+                      background: 'var(--ink-white, #fff)', border: '1px solid var(--ink-gray-20, #e1e1e1)', borderRadius: 'var(--ink-radius-100, 8px)',
+                      padding: 'var(--ink-spacing-200)', aspectRatio: '8.5 / 7', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 'var(--ink-spacing-100)',
+                    }}
+                  >
+                    <Text size="xs" weight="semibold">{entity.name}</Text>
+                    <Text size="sm" weight="semibold">{selected.name}</Text>
+                    {[100, 94, 98, 62, 100, 90, 96, 70].map((width, index) => (
+                      <div key={index} style={{ height: 6, width: `${width}%`, borderRadius: 3, background: 'var(--ink-gray-20, #e1e1e1)' }} />
+                    ))}
+                    <div style={{ marginTop: 'auto', display: 'flex', gap: 'var(--ink-spacing-200)' }}>
+                      <div style={{ flex: 1, borderTop: '1px solid var(--ink-gray-60, #767676)', paddingTop: 'var(--ink-spacing-25)' }}><Text size="xs" color="secondary">{employee.name}</Text></div>
+                      <div style={{ flex: 1, borderTop: '1px solid var(--ink-gray-60, #767676)', paddingTop: 'var(--ink-spacing-25)' }}><Text size="xs" color="secondary">{entity.name.split(' ')[0]} representative</Text></div>
+                    </div>
+                  </div>
+
+                  <Stack gap="small">
+                    <Text size="md" weight="semibold">{selected.name}</Text>
                     <div><Badge kind={EMPLOYEE_DOC_STATUS_KIND[selected.status]} text={selected.status} /></div>
                   </Stack>
                   {[
                     { label: 'Document type', value: selected.type },
-                    { label: 'Last activity', value: formatEmployeeDocDate(selected.ageDays) },
+                    { label: 'Date', value: formatEmployeeDocDate(selected.ageDays) },
                     { label: 'Parties', value: selected.parties },
-                    { label: 'Legal entity', value: entity.name },
                   ].map(row => (
                     <Stack key={row.label} gap="none" style={{ gap: 'var(--ink-spacing-25)' }}>
                       <Text size="xs" color="secondary">{row.label}</Text>
@@ -4090,12 +4115,12 @@ function EmployeeFileWorkspace({ employee, onBack }: { employee: EmployeeFile; o
                     </Stack>
                   ))}
                   <Inline gap="small">
-                    <Button kind="brand" size="small">Open document</Button>
+                    <Button kind="primary" size="small">Open document</Button>
                     <Button kind="secondary" size="small">Download</Button>
                   </Inline>
                 </Stack>
               ) : (
-                <Text size="sm" color="secondary">Select a document to preview its details.</Text>
+                <Text size="sm" color="secondary">Select a document to preview it.</Text>
               )}
             </Card.Body>
           </Card>
